@@ -20,11 +20,8 @@
 
 ## 📸 真实效果
 
-![批量上传列表](assets/screenshots/02-uploaded.png)
 
-![抠图效果对比（原图 → 透明背景 PNG）](assets/screenshots/03-compare.png)
 
-![帮助中心](assets/screenshots/04-help.png)
 
 ## 🚀 快速开始
 
@@ -43,7 +40,10 @@ python server.py
 
 ### 方式 C：Hugging Face 下载模型
 
-模型已完整托管（16 个模型，6.4GB，目录结构与原版一致）：
+模型已完整托管在 Hugging Face，**16 个模型、6.4GB、目录结构与原版完全一致**：
+
+- 模型地址：<https://huggingface.co/jkyy/yang-pixelcut-models>
+- 下载命令：
 
 ```bash
 pip install huggingface_hub
