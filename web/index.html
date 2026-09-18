@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>洋洋 · PixelCut 批量抠图工作台</title>
+<style>
+  :root{
+    --bg0:#07090f; --bg1:#0e1219; --bg2:#141a26; --bg3:#1c2334;
+    --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.12);
+    --ink:#eef2fb; --ink2:#c7cedd; --muted:#8f98ad; --faint:#5d6678;
+    --brand1:#6366f1; --brand2:#a855f7; --accent:#22d3ee;
+    --ok:#34d399; --err:#f87171; --warn:#fbbf24;
+    --grad:linear-gradient(120deg,#6366f1 0%,#a855f7 60%,#d946ef 100%);
+    --rad:16px; --rad-lg:22px; --rad-sm:10px;
+    --shadow:0 20px 60px rgba(0,0,0,.45);
+    --shadow-sm:0 10px 28px rgba(0,0,0,.35);
+    --ring:0 0 0 3px rgba(99,102,241,.32);
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(99,102,241,.14), transparent 60%),
+      radial-gradient(1000px 500px at 85% -10%, rgba(168,85,247,.12), transparent 60%),
+      var(--bg0);
+    color:var(--ink); min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:rgba(99,102,241,.4)}
+
+  /* 键盘可达性与滚动条 */
+  :focus-visible{outline:none}
+  button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{box-shadow:var(--ring)}
+  ::-webkit-scrollbar{width:10px; height:10px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.13); border-radius:8px; border:2px solid transparent; background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2); background-clip:content-box; border:2px solid transparent}
+  ::-webkit-scrollbar-track{background:transparent}
+  *{scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.16) transparent}
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001s!important; animation-iteration-count:1!important; transition-duration:.001s!important}
+  }
+
+  /* ===== 顶部导航 ===== */
+  header{
+    position:sticky; top:0; z-index:40; backdrop-filter:blur(18px) saturate(1.4);
+    background:rgba(7,9,15,.72);
+  }
+  header::after{
+    content:""; position:absolute; left:0; right:0; bottom:0; height:1px;
+    background:linear-gradient(90deg, transparent, rgba(139,92,246,.5) 30%, rgba(217,70,239,.4) 70%, transparent);
+    opacity:.8; pointer-events:none;
+  }
+  .nav{max-width:1220px; margin:0 auto; padding:14px 26px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+  .brand{display:flex; align-items:center; gap:12px; margin-right:auto}
+  .logo{
+    width:40px; height:40px; border-radius:12px; background:var(--grad);
+    display:flex; align-items:center; justify-content:center;
+    position:relative; overflow:hidden; cursor:default; flex:none;
+    box-shadow:0 8px 22px rgba(139,92,246,.45), inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.05);
+    transition:transform .3s cubic-bezier(.2,.8,.2,1), box-shadow .3s;
+    animation:logoGlow 4.5s ease-in-out infinite;
+  }
+  .logo::after{content:""; position:absolute; left:0; right:0; top:0; height:52%;
+    background:linear-gradient(180deg,rgba(255,255,255,.20),transparent); pointer-events:none}
+  .logo svg{width:21px; height:21px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; z-index:1}
+  .logo:hover{transform:translateY(-1px) scale(1.04); box-shadow:0 12px 30px rgba(139,92,246,.62), inset 0 1px 0 rgba(255,255,255,.32), inset 0 0 0 1px rgba(255,255,255,.08)}
+  @keyframes logoGlow{0%,100%{box-shadow:0 8px 22px rgba(139,92,246,.42), inset 0 1px 0 rgba(255,255,255,.28)}50%{box-shadow:0 8px 34px rgba(168,85,247,.6), inset 0 1px 0 rgba(255,255,255,.3)}}
+  .brand h1{font-size:18px; font-weight:700; letter-spacing:.2px; background:linear-gradient(90deg,#fff,#c7d2fe); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
+  .brand .tag{font-size:11px; color:var(--ink2); margin-top:2px; letter-spacing:.5px; opacity:.75}
+  .settings{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+  .field{display:flex; align-items:center; gap:8px}
+  .field .lab{font-size:12px; color:var(--muted); white-space:nowrap}
+  select{
+    appearance:none; border:1px solid var(--line2); background:var(--bg2); color:var(--ink);
+    border-radius:10px; padding:8px 30px 8px 12px; font-size:13px; cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238f98ad' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 12px center; transition:.18s;
+  }
+  select:hover{border-color:var(--brand1)}
+  select:focus{outline:none; border-color:var(--brand1); box-shadow:0 0 0 3px rgba(99,102,241,.22)}
+  .switch{display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; font-size:12.5px; color:var(--muted)}
+  .switch input{appearance:none; width:34px; height:19px; border-radius:20px; background:var(--bg3); border:1px solid var(--line2); position:relative; cursor:pointer; transition:.2s}
+  .switch input::after{content:""; position:absolute; width:13px; height:13px; border-radius:50%; background:#aab3c7; top:2px; left:2px; transition:.2s}
+  .switch input:checked{background:var(--brand1); border-color:var(--brand1)}
+  .switch input:checked::after{transform:translateX(15px); background:#fff}
+
+  /* ===== 主体 ===== */
+  main{max-width:1220px; margin:0 auto; padding:26px 26px 60px}
+  .banner{
+    display:none; border-radius:12px; padding:12px 16px; font-size:13px; margin-bottom:16px;
+    background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.3); color:#fcd34d;
+  }
+  .banner.warn{background:rgba(248,113,113,.1); border-color:rgba(248,113,113,.3); color:#fca5a5}
+
+  /* 拖放区 */
+  .dropzone{
+    position:relative; border-radius:var(--rad-lg); padding:50px 24px; text-align:center; cursor:pointer;
+    background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012)), var(--bg1);
+    border:1.5px dashed rgba(255,255,255,.16); transition:.25s; overflow:hidden;
+  }
+  .dropzone::before{
+    content:""; position:absolute; inset:0; border-radius:var(--rad-lg); pointer-events:none; opacity:0; transition:.3s;
+    background:radial-gradient(600px 300px at 50% 0%, rgba(99,102,241,.18), transparent 70%);
+  }
+  .dropzone:hover,.dropzone.drag{border-color:rgba(139,92,246,.7); background:var(--bg1)}
+  .dropzone.drag::before{opacity:1}
+  .dz-badge{
+    display:inline-flex; align-items:center; gap:7px; margin-bottom:20px;
+    padding:6px 14px; border-radius:20px; font-size:11.5px; font-weight:600; letter-spacing:.5px;
+    color:var(--ink2); background:rgba(99,102,241,.1); border:1px solid rgba(99,102,241,.32);
+  }
+  .dz-badge svg{width:13px; height:13px; stroke:#a5b4fc; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+  .dz-ico{
+    width:76px; height:76px; margin:0 auto 20px; border-radius:var(--rad-lg); position:relative;
+    background:var(--bg3); display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--line2); box-shadow:0 12px 34px rgba(0,0,0,.35);
+  }
+  .dz-ico svg{width:34px; height:34px; stroke:url(#g) 0 0; stroke:#818cf8; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+  .dz-ico::after{
+    content:""; position:absolute; inset:-1px; border-radius:var(--rad-lg); padding:1px; z-index:-1;
+    background:var(--grad); opacity:.5; -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude;
+  }
+  .dropzone h2{font-size:20px; font-weight:700; letter-spacing:.2px}
+  .dropzone .sub{color:var(--muted); font-size:13.5px; margin-top:10px; line-height:1.9}
+  .dz-btns{margin-top:26px; display:flex; gap:12px; justify-content:center}
+
+  /* 按钮 */
+  .btn{
+    border:none; border-radius:12px; padding:11px 22px; font-size:14px; cursor:pointer; font-weight:600;
+    background:var(--grad); color:#fff; position:relative; transition:.18s;
+    box-shadow:0 8px 24px rgba(139,92,246,.35), inset 0 1px 0 rgba(255,255,255,.22);
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .btn:hover{filter:brightness(1.08); transform:translateY(-1px); box-shadow:0 12px 30px rgba(139,92,246,.45)}
+  .btn:active{transform:translateY(0)}
+  .btn.ghost{background:var(--bg2); color:var(--ink); border:1px solid var(--line2); box-shadow:none}
+  .btn.ghost:hover{border-color:rgba(139,92,246,.5); background:var(--bg3); filter:none}
+  .btn.sm{padding:7px 14px; font-size:12.5px; border-radius:9px}
+  .btn:disabled{opacity:.4; cursor:not-allowed; transform:none; box-shadow:none}
+  .btn svg{width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+  .btn .spin{width:14px; height:14px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* 工具栏 */
+  .toolbar{
+    display:none; margin:22px 0 14px; border-radius:16px; padding:14px 18px;
+    background:var(--bg1); border:1px solid var(--line); backdrop-filter:blur(10px);
+    align-items:center; gap:14px; flex-wrap:wrap; justify-content:space-between;
+  }
+  .toolbar.show{display:flex}
+  .stats{font-size:13.5px; color:var(--muted)}
+  .stats b{color:var(--ink)}
+  .stats .ok{color:var(--ok)} .stats .err{color:var(--err)} .stats .wait{color:var(--warn)}
+  .tb-btns{display:flex; gap:10px; flex-wrap:wrap}
+
+  /* 卡片网格 */
+  .grid{display:grid; gap:16px; grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+  .card{
+    border-radius:20px; overflow:hidden; position:relative;
+    background:var(--bg1); border:1px solid var(--line); transition:.22s;
+  }
+  .card.sel{border-color:#a855f7; box-shadow:0 0 0 2px rgba(139,92,246,.28)}
+  .card .sel-ck{position:absolute; left:10px; top:10px; z-index:6; width:17px; height:17px; accent-color:#a855f7; cursor:pointer}
+  #lbImg{transition:transform .06s linear; transform-origin:center center; will-change:transform; cursor:grab}
+  .card:hover{transform:translateY(-3px); border-color:rgba(139,92,246,.4); box-shadow:var(--shadow-sm)}
+  .thumbs{display:grid; grid-template-columns:1fr 1fr; height:190px}
+  .thumb{position:relative; background:#0a0d14; overflow:hidden}
+  .thumb img{width:100%; height:100%; object-fit:contain; display:block}
+  .thumb .tag{
+    position:absolute; left:8px; top:8px; font-size:10.5px; padding:3px 9px; border-radius:20px;
+    background:rgba(0,0,0,.55); color:#cdd5e6; backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,.1); letter-spacing:.3px;
+  }
+  .checker{background:repeating-conic-gradient(#ffffff 0 25%, #e5e7ef 0 50%) 0 0/22px 22px}
+  .info{padding:14px 16px 16px; border-top:1px solid var(--line)}
+  .name{font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .meta{font-size:11.5px; color:var(--faint); margin-top:5px; display:flex; justify-content:space-between; gap:8px; font-variant-numeric:tabular-nums}
+  .bar{height:5px; background:rgba(255,255,255,.06); border-radius:6px; margin-top:10px; overflow:hidden}
+  .bar i{display:block; height:100%; width:0; border-radius:6px; background:var(--grad); transition:width .25s; position:relative}
+  .bar i::after{content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent); animation:shimmer 1.4s infinite}
+  @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+  .status{font-size:12px; margin-top:9px; color:var(--muted); min-height:16px}
+  .status.ok{color:var(--ok)} .status.err{color:var(--err)}
+  .card-ops{display:none; gap:8px; margin-top:11px}
+  .card.done .card-ops, .card.err .card-ops{display:flex}
+  .card-ops .btn{flex:1; justify-content:center; padding:8px 0}
+  .card .rm{
+    position:absolute; right:10px; top:10px; z-index:5; width:28px; height:28px; border-radius:9px;
+    border:none; background:rgba(0,0,0,.55); color:#cdd5e6; cursor:pointer; opacity:0; transition:.18s;
+    display:flex; align-items:center; justify-content:center; backdrop-filter:blur(6px);
+  }
+  .card:hover .rm{opacity:1}
+  .card .rm:hover{background:rgba(248,113,113,.85); color:#fff}
+
+  /* 灯箱 / 精修弹窗 */
+  .lb{position:fixed; inset:0; background:rgba(4,6,11,.85); z-index:60; display:none;
+    flex-direction:column; padding:20px; backdrop-filter:blur(8px)}
+  .lb.show{display:flex}
+  .lb-bar{width:100%; max-width:1200px; margin:0 auto 14px; display:flex; gap:10px; align-items:center; color:#fff}
+  .lb-bar .t{flex:1; font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .modebtn{background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); color:#d3d9e8; padding:8px 16px; border-radius:10px; cursor:pointer; font-size:13px; transition:.16s; display:inline-flex; align-items:center; gap:6px}
+  .modebtn:hover{background:rgba(255,255,255,.14)}
+  .modebtn.on{background:#fff; color:#0e1219; font-weight:650}
+  .modebtn svg{width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+  .x{background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); color:#d3d9e8; width:36px; height:36px; border-radius:10px; cursor:pointer; font-size:16px; transition:.16s}
+  .x:hover{background:rgba(248,113,113,.8); color:#fff}
+  .lb-body{flex:1; width:100%; max-width:1200px; margin:0 auto; overflow:auto; border-radius:16px; text-align:center; position:relative; min-height:200px}
+  .lb-body img{max-width:100%; max-height:76vh; border-radius:14px; background:#0a0d14; object-fit:contain}
+  .lb-body.checker img{background:repeating-conic-gradient(#ffffff 0 25%, #e5e7ef 0 50%) 0 0/26px 26px}
+  .lb-canvas{display:none; position:relative; cursor:crosshair; margin:0 auto; border-radius:14px; overflow:hidden; background:#0a0d14}
+  .lb-canvas.show{display:inline-block}
+  .lb-canvas img{display:block; max-width:100%; max-height:72vh}
+  .pt{position:absolute; width:18px; height:18px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:auto; cursor:grab; touch-action:none;
+    background:rgba(52,211,153,.18); border:2px solid var(--ok); box-shadow:0 0 0 4px rgba(52,211,153,.25), 0 0 14px rgba(52,211,153,.5); z-index:2}
+  .pt::after{content:""; position:absolute; inset:4px; border-radius:50%; background:var(--ok)}
+  .pt-bg{position:absolute; width:18px; height:18px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:auto; cursor:grab; touch-action:none;
+    background:rgba(248,113,113,.18); border:2px solid var(--err); box-shadow:0 0 0 4px rgba(248,113,113,.25); z-index:2}
+  .pt-bg::after{content:"×"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:700}
+  .chip{display:inline-flex; align-items:center; padding:3px 9px; border-radius:12px; font-size:11px; cursor:pointer; color:#aab3c8; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); user-select:none; transition:.15s}
+  .chip:hover{background:rgba(139,92,246,.35); color:#fff}
+  .refine-tip{position:absolute; left:50%; transform:translateX(-50%); top:12px; z-index:3;
+    background:rgba(0,0,0,.65); border:1px solid rgba(255,255,255,.12); color:#d3d9e8;
+    padding:7px 14px; border-radius:20px; font-size:12px; backdrop-filter:blur(8px); white-space:nowrap}
+  .refine-load{position:absolute; inset:0; z-index:4; background:rgba(4,6,11,.7); display:none; align-items:center; justify-content:center; flex-direction:column; gap:14px; backdrop-filter:blur(4px); border-radius:14px}
+  .refine-load.show{display:flex}
+  .ring{width:46px; height:46px; border-radius:50%; border:3px solid rgba(139,92,246,.2); border-top-color:#a855f7; animation:sp .9s linear infinite}
+
+  .toast{
+    position:fixed; left:50%; bottom:30px; transform:translateX(-50%) translateY(20px); z-index:99;
+    background:rgba(20,26,38,.95); color:#eef2fb; padding:12px 22px; border-radius:12px; font-size:13.5px;
+    opacity:0; pointer-events:none; transition:.3s; box-shadow:var(--shadow); border:1px solid var(--line2); backdrop-filter:blur(10px);
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  .empty{padding:64px 20px; text-align:center; color:var(--muted); font-size:14px; border:1px dashed var(--line2); border-radius:20px; margin-top:8px; line-height:2}
+  .empty b{color:var(--ink2); font-weight:600}
+  footer{max-width:1220px; margin:0 auto 40px; padding:0 26px; color:var(--faint); font-size:12px; line-height:2}
+  .foot-brand{margin-top:14px; display:inline-block; font-size:12px; letter-spacing:.5px; color:var(--muted)}
+  .foot-brand .fb-y{
+    font-size:14px; font-weight:800; font-family:"PingFang SC","Microsoft YaHei",sans-serif;
+    background:linear-gradient(120deg,#a5b4fc,#e879f9); -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; margin-right:4px; letter-spacing:1px;
+  }
+  .dot{display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:6px; vertical-align:1px}
+  .dot.g{background:var(--ok)} .dot.p{background:var(--warn)}
+  @media (max-width:720px){ .nav{gap:10px} .grid{grid-template-columns:1fr} }
+
+  /* ===== 精修角标 ===== */
+  .card .badge-refined{
+    position:absolute; right:10px; bottom:10px; z-index:6; display:none;
+    font-size:10px; padding:3px 9px; border-radius:20px; letter-spacing:.3px;
+    background:linear-gradient(120deg,#a855f7,#d946ef); color:#fff;
+    box-shadow:0 4px 12px rgba(168,85,247,.4); border:1px solid rgba(255,255,255,.25);
+  }
+  .card.refined .badge-refined{display:block}
+
+  /* ===== 总进度条 ===== */
+  .progress-wrap{
+    flex:1; min-width:160px; max-width:260px; display:none; align-items:center; gap:10px;
+  }
+  .progress-wrap.show{display:flex}
+  .progress-wrap .pbar{
+    flex:1; height:7px; border-radius:6px; background:rgba(255,255,255,.07); overflow:hidden;
+    border:1px solid var(--line2);
+  }
+  .progress-wrap .pbar i{
+    display:block; height:100%; width:0; border-radius:6px;
+    background:var(--grad); transition:width .3s;
+  }
+  .progress-wrap .ptxt{font-size:12px; color:var(--muted); white-space:nowrap}
+
+  /* ===== 帮助中心 ===== */
+  .help{position:fixed; inset:0; background:rgba(4,6,11,.82); z-index:80; display:none; padding:30px 20px; backdrop-filter:blur(10px)}
+  .help.show{display:flex; align-items:center; justify-content:center}
+  .help-panel{
+    width:min(880px,96vw); max-height:86vh; overflow:auto; border-radius:20px;
+    background:var(--bg1); border:1px solid var(--line2); box-shadow:var(--shadow);
+  }
+  .help-head{position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:12px; padding:18px 24px; border-bottom:1px solid var(--line); background:rgba(14,18,25,.92); backdrop-filter:blur(12px)}
+  .help-head h2{font-size:17px; font-weight:700; background:linear-gradient(90deg,#fff,#c7d2fe); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
+  .help-tabs{display:flex; gap:6px; margin-left:auto}
+  .help-tab{padding:7px 16px; border-radius:10px; font-size:13px; cursor:pointer; color:var(--muted); background:rgba(255,255,255,.05); border:1px solid var(--line2); transition:.16s}
+  .help-tab:hover{background:rgba(255,255,255,.1)}
+  .help-tab.on{background:var(--brand1); color:#fff; border-color:transparent}
+  .help-body{padding:24px; }
+  .help-sec{margin-bottom:26px}
+  .help-sec h3{font-size:14px; font-weight:700; color:var(--accent); margin-bottom:12px; display:flex; align-items:center; gap:8px}
+  .help-sec h3::before{content:""; width:8px; height:8px; border-radius:3px; background:var(--grad); display:inline-block}
+  .help-card{
+    border-radius:14px; background:var(--bg2); border:1px solid var(--line); padding:14px 16px; margin-bottom:10px;
+  }
+  .help-card h4{font-size:13.5px; font-weight:650; margin-bottom:6px; display:flex; align-items:center; gap:8px}
+  .help-card p{font-size:12.5px; color:var(--muted); line-height:1.85}
+  .help-card .k{
+    display:inline-block; background:rgba(99,102,241,.18); color:#a5b4fc; border:1px solid rgba(99,102,241,.35);
+    padding:1px 7px; border-radius:6px; font-size:11.5px; margin:0 2px; font-family:ui-monospace,Consolas,monospace;
+  }
+  .help-card b{color:var(--ink)}
+  .faq-item{border:1px solid var(--line); border-radius:12px; margin-bottom:8px; overflow:hidden; background:var(--bg2)}
+  .faq-q{
+    width:100%; text-align:left; padding:13px 16px; font-size:13px; font-weight:600; cursor:pointer;
+    background:none; border:none; color:var(--ink); display:flex; align-items:center; gap:10px;
+  }
+  .faq-q .arrow{margin-left:auto; transition:.2s; color:var(--muted)}
+  .faq-item.open .faq-q .arrow{transform:rotate(90deg)}
+  .faq-a{display:none; padding:0 16px 14px; font-size:12.5px; color:var(--muted); line-height:1.9}
+  .faq-item.open .faq-a{display:block}
+  .faq-a b{color:var(--ink)}
+
+  /* ===== 首次引导 ===== */
+  .onboard{position:fixed; inset:0; background:rgba(4,6,11,.88); z-index:90; display:none; align-items:center; justify-content:center; backdrop-filter:blur(8px)}
+  .onboard.show{display:flex}
+  .ob-panel{
+    width:min(520px,92vw); border-radius:22px; background:var(--bg1); border:1px solid var(--line2);
+    box-shadow:var(--shadow); overflow:hidden;
+  }
+  .ob-step{padding:32px 30px 26px; text-align:center}
+  .ob-ico{
+    width:72px; height:72px; margin:0 auto 18px; border-radius:20px; background:var(--grad);
+    display:flex; align-items:center; justify-content:center; box-shadow:0 12px 30px rgba(139,92,246,.4);
+  }
+  .ob-ico svg{width:32px; height:32px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+  .ob-step h3{font-size:17px; font-weight:700; margin-bottom:10px}
+  .ob-step p{font-size:13px; color:var(--muted); line-height:1.9}
+  .ob-step p b{color:var(--ink)}
+  .ob-ctls{display:flex; align-items:center; gap:12px; margin-top:24px; justify-content:center}
+  .ob-dots{display:flex; gap:6px; margin-top:22px; justify-content:center}
+  .ob-dot{width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.2); transition:.2s}
+  .ob-dot.on{background:var(--brand1); width:20px; border-radius:4px}
+
+  /* ===== 全窗拖放遮罩 ===== */
+  .drop-mask{
+    position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center;
+    background:rgba(99,102,241,.14); border:3px dashed rgba(139,92,246,.7); border-radius:18px;
+    backdrop-filter:blur(3px); pointer-events:none;
+  }
+  .drop-mask.show{display:flex}
+  .drop-mask .dm-inner{text-align:center; color:#fff}
+  .drop-mask .dm-inner .big{font-size:26px; font-weight:700; margin-bottom:8px; text-shadow:0 4px 20px rgba(0,0,0,.5)}
+  .drop-mask .dm-inner .sub{font-size:14px; color:#d3d9e8}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <div class="brand">
+      <div class="logo" title="洋洋 · PixelCut 批量抠图工作台">
+        <svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      </div>
+      <div>
+        <h1>PixelCut 批量抠图</h1>
+        <div class="tag">本地运行 · 免费 · 原分辨率输出</div>
+      </div>
+    </div>
+    <div class="settings">
+      <div class="field">
+        <span class="lab">模型</span>
+        <select id="model">
+          <option value="rmbg2" selected>全球最强 · RMBG-2.0（默认）</option>
+          <option value="enhance">完整增强 · RMBG+HRSOD（最完整）</option>
+          <option value="hrsod">显著目标 · HRSOD（高分辨率）</option>
+          <option value="quality">高清 · BiRefNet-Lite（快）</option>
+          <option value="portrait">人像专精 · BiRefNet-Portrait</option>
+          <option value="massive">至尊 · BiRefNet-Massive</option>
+          <option value="fast">通用 · 更快（U²-Net）</option>
+          <option value="human">人像 · U²-Net Human</option>
+        </select>
+      </div>
+      <label class="switch"><input type="checkbox" id="matting"><span>精细边缘</span></label>
+      <div class="field" style="margin-left:14px">
+        <span class="lab">并发</span>
+        <select id="conc" title="同时处理几张（多核快，吃内存，建议 1）">
+          <option value="1" selected>1 · 最稳</option>
+          <option value="2">2 · 快</option>
+          <option value="3">3 · 最快</option>
+        </select>
+      </div>
+      <button class="btn ghost sm" id="btnHelp" style="margin-left:6px">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 2.5-3 4"/><circle cx="12" cy="17.5" r=".5"/></svg>
+        使用帮助
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="banner" class="banner"></div>
+
+  <div class="dropzone" id="dz">
+    <div class="dz-badge">
+      <svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
+      100% 原分辨率输出 · 全程本机处理
+    </div>
+    <div class="dz-ico">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-4.5-4.5L7 20"/></svg>
+    </div>
+    <h2>拖入图片或整个文件夹</h2>
+    <div class="sub">支持 JPG · PNG · WebP · BMP · TIFF　·　选择后先加入列表，确认后一键抠图<br>输出与原图完全同分辨率，全程本地处理、不上传网络</div>
+    <div class="dz-btns">
+      <button class="btn" onclick="pick('files')">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+        选择图片
+      </button>
+      <button class="btn ghost" onclick="pick('folder')">
+        <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+        打开文件夹
+      </button>
+    </div>
+  </div>
+
+  <input type="file" id="inFiles" multiple accept=".jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff" hidden>
+  <input type="file" id="inFolder" webkitdirectory hidden>
+
+  <div class="toolbar" id="tb">
+    <div class="stats" id="stats"></div>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="pbar"><i id="totalBar"></i></div>
+      <div class="ptxt" id="totalTxt">0/0</div>
+    </div>
+    <div class="tb-btns">
+      <button class="btn sm" id="btnRun" disabled>
+        <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <span id="btnRunTxt">一键抠图</span>
+      </button>
+      <button class="btn ghost sm" id="btnStop" style="display:none">⏹ 停止</button>
+      <button class="btn ghost sm" id="btnZip" disabled>下载全部 ZIP</button>
+      <button class="btn ghost sm" id="btnZipSel" disabled title="勾选卡片左上角后打包下载所选图片">下载所选</button>
+      <button class="btn ghost sm" id="btnBatch" disabled title="输入提示词，一键补全所有已完成图片的指定物体（如椅子）">批量补全</button>
+      <button class="btn ghost sm" id="btnOpen">打开结果夹</button>
+      <button class="btn ghost sm" id="btnClear">清空</button>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">还没有图片 —— <b>拖入图片或打开文件夹</b>，选好后点击「一键抠图」</div>
+</main>
+
+<footer>
+  · 结果 PNG 自动保存到「本文件夹\抠图结果\」批次文件夹，也可「下载全部 ZIP」。<br>
+  · 处理全程在本机完成；输出分辨率与原图完全一致；「点选精修」可手动补全人物/椅子等任何区域。<br>
+  <span class="foot-brand"><span class="fb-y">洋洋</span> · PixelCut 批量抠图工作台</span>
+</footer>
+
+<!-- 灯箱（含精修） -->
+<div class="lb" id="lb">
+  <div class="lb-bar">
+    <span class="t" id="lbTitle"></span>
+    <button class="modebtn" id="lbRefine" style="display:none">
+      <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      点选精修
+    </button>
+    <button class="modebtn" id="lbSegment" style="display:none">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      提示词补全
+    </button>
+    <button class="modebtn on" id="lbOrig">原图</button>
+    <button class="modebtn" id="lbCut">抠图结果</button>
+    <a id="lbDl" download><button class="modebtn"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>下载</button></a>
+    <button class="x" onclick="closeLb()">✕</button>
+  </div>
+  <div class="lb-body" id="lbBody">
+    <img id="lbImg" alt="">
+    <div class="lb-canvas" id="lbCanvas">
+      <div class="refine-tip" id="refineTip">点图加区域（绿色）· 切「－减」去除误抠（红色）· 可拖动微调 · 完成后点「应用」</div>
+      <img id="lbCanvasImg" alt="">
+      <div class="refine-load" id="refineLoad"><div class="ring"></div><div style="color:#d3d9e8;font-size:14px">AI 精修中…</div></div>
+    </div>
+  </div>
+  <div class="lb-bar" id="refineBar" style="display:none">
+    <div style="display:inline-flex;gap:4px" id="ptOpWrap">
+      <button class="modebtn on" id="ptAddMode" title="点击加区域（保留）">＋加</button>
+      <button class="modebtn" id="ptSubMode" title="点击减区域（去除误抠）">－减</button>
+    </div>
+    <span id="ptInfo" style="font-size:12px;color:#8f98ad;display:inline-flex;align-items:center;gap:8px;white-space:nowrap">已标记 <b id="ptCount" style="color:#34d399">0</b> 点</span>
+    <select id="samModel" class="modebtn" style="padding:6px 10px" title="SAM 分割模型">
+      <option value="vit_b">SAM · 快速(ViT-B)</option>
+      <option value="vit_l">SAM · 精准(ViT-L)</option>
+    </select>
+    <div id="segWrap" style="display:none;flex:1;min-width:0;align-items:center;gap:8px;flex-wrap:wrap">
+      <input id="segPrompt" placeholder="物体提示词（中/英）：椅子/帽子/包/chair/hat…" style="flex:1;min-width:140px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#eef2fb;padding:8px 12px;border-radius:10px;font-size:13px;outline:none">
+      <div id="segChips" style="display:flex;flex-wrap:wrap;gap:5px">
+        <span class="chip" data-w="chair">椅子</span>
+        <span class="chip" data-w="hat">帽子</span>
+        <span class="chip" data-w="bag">包</span>
+        <span class="chip" data-w="person">人</span>
+        <span class="chip" data-w="hair">头发</span>
+        <span class="chip" data-w="shoes">鞋</span>
+        <span class="chip" data-w="plant">植物</span>
+        <span class="chip" data-w="phone">手机</span>
+      </div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:10px">
+      <button class="modebtn" id="ptUndo">撤销</button>
+      <button class="modebtn" id="ptClear">清除全部</button>
+      <button class="btn sm" id="ptApply">应用</button>
+      <button class="modebtn" onclick="exitRefine()">退出</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 帮助中心 -->
+<div class="help" id="helpBox">
+  <div class="help-panel">
+    <div class="help-head">
+      <h2>PixelCut 使用帮助</h2>
+      <div class="help-tabs">
+        <button class="help-tab on" id="htabGuide">使用说明</button>
+        <button class="help-tab" id="htabFaq">常见问题</button>
+      </div>
+      <button class="x" onclick="closeHelp()">✕</button>
+    </div>
+    <div class="help-body" id="helpGuide">
+      <div class="help-sec">
+        <h3>快速上手（3 步）</h3>
+        <div class="help-card">
+          <h4>① 拖入图片 / 整个文件夹</h4>
+          <p>把图片或整个文件夹拖到页面任意位置（或点「选择图片 / 打开文件夹」）。支持 JPG / PNG / WebP / BMP / TIFF。选好后不会立即抠图，先进入列表等待确认。</p>
+        </div>
+        <div class="help-card">
+          <h4>② 点「一键抠图」</h4>
+          <p>确认无误后点击「一键抠图」，工具会用所选模型批量处理。全程在<b>本机</b>处理，图片不上传网络；输出 PNG 与原图<b>分辨率完全一致</b>（5464×5464 原图抠出来仍是 5464×5464）。</p>
+        </div>
+        <div class="help-card">
+          <h4>③ 精修 / 补全 / 下载</h4>
+          <p>单张结果不理想 → 点卡片「精修」手动加区域，或「提示词补全」输入物体名。全部完成可「下载全部 ZIP」或勾选后「下载所选」。</p>
+        </div>
+      </div>
+      <div class="help-sec">
+        <h3>模型怎么选（顶部下拉）</h3>
+        <div class="help-card">
+          <h4>全球最强 · RMBG-2.0（默认）</h4>
+          <p>综合效果最好的通用抠图，人物/商品/杂物都稳。<b>首选。</b></p>
+        </div>
+        <div class="help-card">
+          <h4>完整增强 · RMBG+HRSOD（最完整）</h4>
+          <p>两个模型取并集，最不容易丢东西（如人+椅连坐场景），速度较慢、更吃内存。</p>
+        </div>
+        <div class="help-card">
+          <h4>高清 · BiRefNet-Lite（快）</h4>
+          <p>速度与效果平衡，适合大批量、对速度有要求。</p>
+        </div>
+        <div class="help-card">
+          <h4>人像专精 · BiRefNet-Portrait / 人像 · U²-Net Human</h4>
+          <p>专注人物主体，头发/身体轮廓更贴。</p>
+        </div>
+        <div class="help-card">
+          <h4>至尊 · BiRefNet-Massive / 显著目标 · HRSOD</h4>
+          <p>大数据训练/高分辨率模型，细节更强但慢。适合对效果有极致要求。</p>
+        </div>
+        <div class="help-card">
+          <h4>通用 · 更快（U²-Net）</h4>
+          <p>最轻量最快，日常快速预览或低配电脑用。</p>
+        </div>
+      </div>
+      <div class="help-sec">
+        <h3>精细边缘</h3>
+        <div class="help-card">
+          <h4>顶部开关「精细边缘」</h4>
+          <p>开启后使用 ViTMatte 网络做发丝级抠图，<b>毛发、镂空、半透明边缘更准</b>，速度变慢（单张约 40s+）。对发丝要求高时开启。</p>
+        </div>
+      </div>
+      <div class="help-sec">
+        <h3>并发（多核加速）</h3>
+        <div class="help-card">
+          <h4>同时处理几张</h4>
+          <p><span class="k">1·最稳</span>（默认）逐张处理、内存最小；<span class="k">2 / 3</span> 更快但更吃内存。低内存电脑或大图请保持 <span class="k">1</span>。</p>
+        </div>
+      </div>
+      <div class="help-sec">
+        <h3>点选精修（SAM）</h3>
+        <div class="help-card">
+          <h4>手动补全/去除区域</h4>
+          <p>结果图下方点「精修」→ 在<b>图上点击要保留的区域</b>（绿色点，如椅子），或切「<b>－减</b>」点击去除误抠部分（红色点）。点可<b>拖动微调</b>，完成后点「应用」。「SAM 档位」可选快速（ViT-B）或精准（ViT-L）。</p>
+        </div>
+      </div>
+      <div class="help-sec">
+        <h3>提示词补全（CLIPSeg）</h3>
+        <div class="help-card">
+          <h4>输入物体名自动补全</h4>
+          <p>点「提示词补全」，输入要保留的物体中文或英文（<span class="k">椅子</span> / <span class="k">chair</span> / <span class="k">帽子</span> / <span class="k">包</span>…），点「应用」自动识别并补上。有常用词快捷按钮。</p>
+        </div>
+      </div>
+      <div class="help-sec">
+        <h3>批量补全</h3>
+        <div class="help-card">
+          <h4>一次补全所有已完成图片</h4>
+          <p>所有图都缺同一物体（如都缺椅子）时：先「一键抠图」→ 点工具栏「<b>批量补全</b>」→ 输入提示词，自动逐张补全。可随时点「停止」中断。</p>
+        </div>
+      </div>
+      <div class="help-sec">
+        <h3>下载</h3>
+        <div class="help-card">
+          <h4>下载全部 ZIP / 下载所选 / 单张下载</h4>
+          <p>「下载全部 ZIP」打包当前批次全部结果；勾选卡片左上角方框后「下载所选」只打包勾选的；每张卡片也有「下载」按钮。结果同时自动保存到 <b>本文件夹\抠图结果\</b> 的批次目录。</p>
+        </div>
+      </div>
+      <div class="help-sec">
+        <h3>快捷键 & 小技巧</h3>
+        <div class="help-card">
+          <h4>Ctrl+V 粘贴入列</h4>
+          <p>截图/剪贴板里的图片直接 <span class="k">Ctrl+V</span> 加入列表，无需保存文件。灯箱内可<b>滚轮缩放、按住拖动</b>细看发丝边缘。</p>
+        </div>
+      </div>
+    </div>
+    <div class="help-body" id="helpFaq" style="display:none">
+      <div class="help-sec">
+        <h3>常见问题</h3>
+        <div class="faq-item"><button class="faq-q">模型显示「尚未下载」怎么办？<span class="arrow">▶</span></button>
+          <div class="faq-a">首次选某个模型时需要联网下载（几百 MB 到 1GB），下载完成后自动可用。若网络慢可稍等重试；所有模型已随工具一起打包，正常情况下直接可用。</div></div>
+        <div class="faq-item"><button class="faq-q">提示「模型文件损坏」怎么办？<span class="arrow">▶</span></button>
+          <div class="faq-a">模型文件下载不完整导致。查看 <span class="k">server.log</span> 确认哪个模型，删除 <span class="k">models\models\对应文件夹</span> 后重新下载完整文件，或换其他模型继续用。</div></div>
+        <div class="faq-item"><button class="faq-q">提示内存不足怎么办？<span class="arrow">▶</span></button>
+          <div class="faq-a">图片太大或并发太高。建议：① 换「高清 / 通用·更快」轻量模型 ② 并发改回 <span class="k">1</span> ③ 关闭 Photoshop 等大程序后重试。</div></div>
+        <div class="faq-item"><button class="faq-q">椅子/桌子等连着人的物体被抠掉了？<span class="arrow">▶</span></button>
+          <div class="faq-a">这是自动抠图模型普遍难点（模型默认只认"主体"）。解决办法：① 换「完整增强 · RMBG+HRSOD」模型（并集最全）② 用「点选精修」在缺失处点绿色保留 ③ 用「提示词补全」输入 <span class="k">chair</span> 自动补。</div></div>
+        <div class="faq-item"><button class="faq-q">发丝抠得不干净/有白边？<span class="arrow">▶</span></button>
+          <div class="faq-a">开启顶部「精细边缘」（ViTMatte 发丝级）会明显改善；也可以用「提示词补全」输入 <span class="k">hair</span> 补发丝，或点选精修手动加。</div></div>
+        <div class="faq-item"><button class="faq-q">图片太大提示超出上限？<span class="arrow">▶</span></button>
+          <div class="faq-a">单张上限约 1 亿像素（足够 5464×5464 并留余量）。更大的图建议先缩小到 6000px 内再抠。</div></div>
+        <div class="faq-item"><button class="faq-q">结果保存在哪里？<span class="arrow">▶</span></button>
+          <div class="faq-a">自动保存到 <b>本工具文件夹\抠图结果\</b> 下的按时间命名的批次目录，点工具栏「打开结果夹」直达。也可随时「下载 ZIP」。</div></div>
+        <div class="faq-item"><button class="faq-q">怎么把工具拷到别的电脑用？<span class="arrow">▶</span></button>
+          <div class="faq-a">整个文件夹（含 <span class="k">models</span> 模型和 <span class="k">runtime</span> 运行环境）拷贝到任意 Windows 电脑，双击「启动抠图工具.bat」即可，<b>无需安装任何东西</b>。首次启动若被杀毒软件拦截，选「允许」即可。</div></div>
+        <div class="faq-item"><button class="faq-q">处理一半卡住/闪退？<span class="arrow">▶</span></button>
+          <div class="faq-a">多为内存不足或模型损坏。关掉大程序、并发改 1 重试；仍闪退看 <span class="k">server.log</span> 末尾错误，或重启电脑后再试。</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 首次引导 -->
+<div class="onboard" id="onboard">
+  <div class="ob-panel">
+    <div class="ob-step" id="obStep">
+      <div class="ob-ico" id="obIco"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z"/><circle cx="12" cy="13" r="3.5"/></svg></div>
+      <h3 id="obTitle"></h3>
+      <p id="obText"></p>
+      <div class="ob-dots"><span class="ob-dot on"></span><span class="ob-dot"></span><span class="ob-dot"></span></div>
+      <div class="ob-ctls">
+        <button class="btn ghost sm" onclick="obSkip()">跳过</button>
+        <button class="btn sm" id="obNext" onclick="obNext()">下一步</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 全窗拖放遮罩 -->
+<div class="drop-mask" id="dropMask"><div class="dm-inner"><div class="big">松开即可添加图片</div><div class="sub">支持单张或整个文件夹</div></div></div>
+
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const EXT = ["jpg","jpeg","png","webp","bmp","tif","tiff"];
+const grid = $("#grid"), dz = $("#dz"), tb = $("#tb"), empty = $("#empty");
+const MODEL_NAMES = {rmbg2:"RMBG-2.0", enhance:"完整增强", hrsod:"HRSOD", quality:"高清", portrait:"人像", massive:"至尊", fast:"快速", human:"人像U2Net", sam:"SAM-ViT-B", sam_l:"SAM-ViT-L", clipseg:"提示词抠图"};
+
+const state = {
+  items: [], running: false, cancel: false,
+  sid: genSid(), model: "rmbg2", matting: false,
+};
+
+function genSid(){
+  const d = new Date(), p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${Math.floor(Math.random()*90+10)}`;
+}
+let toastTm;
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTm); toastTm = setTimeout(()=>t.classList.remove("show"), 2600); }
+function fmtSize(b){ return b>1048576 ? (b/1048576).toFixed(1)+"MB" : Math.round(b/1024)+"KB"; }
+
+/* ---------- 添加文件（只入列，不自动抠图） ---------- */
+function pick(mode){ const el = mode==="folder" ? $("#inFolder") : $("#inFiles"); el.value = ""; el.click(); }
+$("#inFiles").addEventListener("change", e => addFiles([...e.target.files]));
+$("#inFolder").addEventListener("change", e => addFiles([...e.target.files]));
+
+async function makeThumb(f){
+  try{
+    const bmp = await createImageBitmap(f);
+    const sc = Math.min(1, 360 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(bmp.width*sc));
+    c.height = Math.max(1, Math.round(bmp.height*sc));
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const thumb = c.toDataURL("image/jpeg", 0.82);
+    const w = bmp.width, h = bmp.height;
+    bmp.close();
+    return { thumb, w, h };
+  }catch(_){ return null; }
+}
+function addFiles(list){
+  const files = list.filter(f => EXT.includes(f.name.split(".").pop().toLowerCase()));
+  const skippedExt = list.length - files.length;
+  // 去重：同名 + 同大小自动跳过
+  const seen = new Set(state.items.map(i => i.name + "|" + i.size));
+  const uniq = files.filter(f => {
+    const k = f.name + "|" + f.size;
+    if(seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+  const skippedDup = files.length - uniq.length;
+  uniq.sort((a,b)=>a.name.localeCompare(b.name,"zh-Hans-CN",{numeric:true}));
+  if(!uniq.length){
+    if(list.length) toast("这些图片均已添加过或格式不支持");
+    else toast("未选择任何图片文件");
+    return;
+  }
+  for(const f of uniq){
+    const it = { id: state.items.length + "-" + Math.random().toString(36).slice(2,7),
+                 file:f, name:f.name, size:f.size, status:"pending", progress:0, selected:false };
+    it.url = URL.createObjectURL(f);
+    state.items.push(it);
+    grid.appendChild(cardEl(it));
+    // 缩略图降采样（大图列表不卡）+ 记录原图分辨率
+    makeThumb(f).then(r => { if(!r) return; it.origW = r.w; it.origH = r.h; if(it.el){ it.el.querySelector("img").src = r.thumb; it.el.querySelector(".dims").textContent = r.w + "×" + r.h; } });
+  }
+  tb.classList.add("show"); empty.style.display = "none";
+  updateStats();
+  const msg = [];
+  if(skippedExt) msg.push(`跳过 ${skippedExt} 个非图片`);
+  if(skippedDup) msg.push(`去重 ${skippedDup} 个重复`);
+  if(msg.length) toast(msg.join("，"));
+  else toast(`已加入 ${uniq.length} 张，确认后点「一键抠图」`);
+}
+
+/* ---------- 拖拽（支持整个文件夹） ---------- */
+["dragenter","dragover"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add("drag"); }));
+["dragleave","drop"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); if(ev!=="drop"||e.target===dz) dz.classList.remove("drag"); }));
+dz.addEventListener("drop", async e => { e.preventDefault(); e.stopPropagation(); dz.classList.remove("drag"); addFiles(await collectFromDataTransfer(e.dataTransfer)); });
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", e => e.preventDefault());
+function collectFromDataTransfer(dt){
+  return new Promise(resolve => {
+    const out = [];
+    const items = dt.items ? [...dt.items] : [];
+    const entries = items.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry());
+    if(entries.some(Boolean)){
+      let chain = Promise.resolve();
+      for(const en of entries){ if(!en) continue; chain = chain.then(() => walkEntry(en, out)); }
+      chain.then(()=>resolve(out));
+    } else resolve([...dt.files]);
+  });
+}
+function walkEntry(entry, out){
+  return new Promise(resolve => {
+    if(entry.isFile){ entry.file(f => { out.push(f); resolve(); }, () => resolve()); }
+    else if(entry.isDirectory){
+      const reader = entry.createReader();
+      const readAll = () => { reader.readEntries(async ents => {
+        if(!ents.length) return resolve();
+        for(const e2 of ents) await walkEntry(e2, out);
+        readAll();
+      }, () => resolve()); };
+      readAll();
+    } else resolve();
+  });
+}
+
+/* ---------- 手动一键抠图 ---------- */
+function runQueue(){
+  if(state.running) return;
+  const pending = state.items.filter(i => i.status === "pending");
+  if(!pending.length){ toast("没有待处理的图片"); return; }
+  state.running = true; state.cancel = false;
+  $("#btnRun").disabled = true; $("#btnStop").style.display = "";
+  updateStats();
+  const conc = Math.min(3, Math.max(1, parseInt($("#conc").value) || 1));
+  (async () => {
+    let idx = 0;
+    const workers = [];
+    for(let i = 0; i < conc; i++){
+      workers.push((async () => {
+        while(!state.cancel){
+          const it = pending[idx++];
+          if(!it) break;
+          await processItem(it);
+        }
+      })());
+    }
+    await Promise.all(workers);
+    state.running = false;
+    $("#btnStop").style.display = "none";
+    updateStats();
+    const okN = state.items.filter(i=>i.status==="done").length;
+    if(!state.cancel && okN) toast(`完成 ${okN} 张，已保存到「抠图结果」 ✅`);
+  })();
+}
+
+function processItem(it){
+  return new Promise(resolve => {
+    it.status = "uploading"; it.progress = 0; updateCard(it);
+    const fd = new FormData();
+    fd.append("file", it.file, it.name);
+    fd.append("session", state.sid);
+    fd.append("model", state.model);
+    fd.append("matting", state.matting ? "1" : "0");
+    fd.append("concurrency", $("#conc").value || "1");
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/process");
+    xhr.responseType = "json";
+    xhr.timeout = 300000;  // 5 分钟超时兜底，避免极端情况无限等待
+    xhr.upload.onprogress = e => {
+      if(e.lengthComputable){
+        it.progress = e.loaded / e.total;
+        if(it.progress >= 1) it.status = "processing";
+        updateCard(it);
+      }
+    };
+    xhr.onload = () => {
+      const r = xhr.response || {};
+      if(r.ok){
+        it.status = "done"; it.result = r;
+        if(r.warning) toast(it.name + "：" + r.warning);
+      } else {
+        it.status = "error"; it.error = r.error || ("HTTP " + xhr.status);
+      }
+      updateCard(it); updateStats(); resolve();
+    };
+    xhr.onerror = xhr.ontimeout = () => {
+      it.status = "error";
+      it.error = xhr.statusText === "timeout" ? "处理超时（图片过大或模型卡住），已停止等待" : "网络错误：请确认服务窗口未关闭";
+      updateCard(it); updateStats(); resolve();
+    };
+    xhr.send(fd);
+  });
+}
+
+/* ---------- 卡片 ---------- */
+function cardEl(it){
+  const el = document.createElement("div");
+  el.className = "card"; el.dataset.id = it.id;
+  el.innerHTML = `
+    <input type="checkbox" class="sel-ck" title="选中用于「下载所选」">
+    <span class="badge-refined">已精修</span>
+    <button class="rm" title="移除">✕</button>
+    <div class="thumbs">
+      <div class="thumb"><span class="tag">原图</span><img alt=""></div>
+      <div class="thumb checker"><span class="tag">抠图结果</span><img alt=""></div>
+    </div>
+    <div class="info">
+      <div class="name" title=""></div>
+      <div class="meta"><span class="dims"></span><span class="sz"></span></div>
+      <div class="bar"><i></i></div>
+      <div class="status"></div>
+      <div class="card-ops">
+        <button class="btn sm ghost" data-act="retry" style="display:none"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-2.64-6.36M21 3v6h-6"/></svg>重试</button>
+        <button class="btn sm ghost" data-act="refine"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>精修</button>
+        <a data-act="dl" download style="flex:1;text-decoration:none"><button class="btn sm" style="width:100%"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>下载</button></a>
+      </div>
+    </div>`;
+  el.querySelector("img").src = it.thumb || it.url;
+  el.querySelector(".name").textContent = it.name;
+  el.querySelector(".name").title = it.name;
+  el.querySelector(".sz").textContent = fmtSize(it.size);
+  const ck = el.querySelector(".sel-ck");
+  ck.addEventListener("click", e => { e.stopPropagation(); it.selected = ck.checked; el.classList.toggle("sel", ck.checked); updateStats(); });
+  el.querySelector(".rm").addEventListener("click", e => { e.stopPropagation(); removeItem(it); });
+  el.querySelector("[data-act=refine]").addEventListener("click", e => { e.stopPropagation(); openRefine(it); });
+  el.querySelector("[data-act=dl]").addEventListener("click", e => { if(!it.result){ e.preventDefault(); toast("请先处理该图片"); } });
+  el.querySelector("[data-act=retry]").addEventListener("click", e => { e.stopPropagation(); retryItem(it); });
+  el.addEventListener("click", e => { if(e.target.closest(".sel-ck,.rm,.card-ops")) return; openLb(it); });
+  it.el = el;
+  return el;
+}
+function retryItem(it){
+  if(state.running){ toast("队列处理中，请等当前批次结束后再重试"); return; }
+  it.status = "pending"; it.error = ""; it.progress = 0;
+  it.el.querySelector("[data-act=retry]").style.display = "none";
+  it.el.querySelector("[data-act=refine]").style.display = "";
+  it.el.querySelector("[data-act=dl]").style.display = "";
+  updateCard(it); updateStats();
+  processItem(it).then(updateStats);
+}
+function removeItem(it){
+  if(state.running && (it.status==="uploading" || it.status==="processing")) { toast("处理中的图片不能移除"); return; }
+  URL.revokeObjectURL(it.url);
+  state.items = state.items.filter(x => x !== it);
+  it.el.remove();
+  if(!state.items.length){ tb.classList.remove("show"); empty.style.display = "block"; }
+  updateStats();
+}
+
+function updateCard(it){
+  if(!it.el) return;
+  const st = it.el.querySelector(".status");
+  const bar = it.el.querySelector(".bar i");
+  bar.style.width = Math.round((it.status==="done"||it.status==="error" ? 1 : it.progress) * 100) + "%";
+  st.className = "status";
+  it.el.classList.toggle("done", it.status === "done");
+  it.el.classList.toggle("err", it.status === "error");
+  it.el.classList.toggle("refined", it.status === "done" && !!it.refined);
+  if(it.status === "pending"){ st.textContent = "待处理 · 排队中"; bar.style.width = "0"; }
+  else if(it.status === "uploading"){ st.innerHTML = `<span class="spin"></span>上传中 ${Math.round(it.progress*100)}%`; }
+  else if(it.status === "processing"){ st.innerHTML = `<span class="spin"></span>AI 抠图中…`; bar.style.width = "92%"; }
+  else if(it.status === "done"){
+    st.classList.add("ok");
+    st.textContent = `完成 · ${(it.result.ms/1000).toFixed(1)}s · ${it.result.w}×${it.result.h}`;
+    it.el.querySelector(".dims").textContent = it.result.w + "×" + it.result.h;
+    const imgs = it.el.querySelectorAll("img");
+    imgs[1].src = it.result.url;
+    const dl = it.el.querySelector("[data-act=dl]");
+    dl.href = it.result.url; dl.download = it.result.outName;
+    it.el.querySelector("[data-act=retry]").style.display = "none";
+    it.el.querySelector("[data-act=refine]").style.display = "";
+    it.el.querySelector("[data-act=dl]").style.display = "";
+  }
+  else if(it.status === "error"){
+    st.classList.add("err");
+    st.textContent = "失败：" + it.error;
+    bar.style.width = "100%";
+    it.el.querySelector(".bar i").style.background = "var(--err)";
+    it.el.querySelector("[data-act=retry]").style.display = "";
+    it.el.querySelector("[data-act=refine]").style.display = "none";
+    it.el.querySelector("[data-act=dl]").style.display = "none";
+  }
+}
+
+function updateStats(){
+  const n = state.items.length;
+  const ok = state.items.filter(i=>i.status==="done").length;
+  const bad = state.items.filter(i=>i.status==="error").length;
+  const wait = state.items.filter(i=>i.status==="pending").length;
+  $("#stats").innerHTML = `共 <b>${n}</b> 张 · <span class="ok">完成 ${ok}</span>` +
+    (wait ? ` · <span class="wait">待处理 ${wait}</span>` : "") +
+    (bad ? ` · <span class="err">失败 ${bad}</span>` : "");
+  $("#btnRun").disabled = wait === 0;
+  $("#btnZip").disabled = ok === 0;
+  const selN = state.items.filter(i => i.selected && i.status === "done" && i.result).length;
+  $("#btnZipSel").disabled = selN === 0;
+  $("#btnBatch").disabled = batchRunning ? false : ok === 0;
+  if(!batchRunning) $("#btnBatch").textContent = "批量补全" + (ok ? `（${ok}）` : "");
+  $("#btnRunTxt").textContent = state.running ? "处理中…" : (wait ? `一键抠图（${wait}）` : "一键抠图");
+  // 总进度条
+  const fin = state.items.filter(i => i.status === "done" || i.status === "error").length;
+  const pct = n ? Math.round(fin / n * 100) : 0;
+  $("#totalBar").style.width = pct + "%";
+  $("#totalTxt").textContent = fin + "/" + n;
+  $("#progressWrap").classList.toggle("show", n > 0);
+}
+
+/* ---------- 工具栏 ---------- */
+$("#btnRun").addEventListener("click", runQueue);
+$("#btnStop").addEventListener("click", () => { state.cancel = true; toast("将在当前任务完成后停止"); });
+$("#btnClear").addEventListener("click", () => {
+  if(state.running) state.cancel = true;
+  state.items.forEach(i => i.url && URL.revokeObjectURL(i.url));
+  state.items = []; state.sid = genSid();
+  grid.innerHTML = ""; tb.classList.remove("show"); empty.style.display = "block";
+});
+$("#btnZip").addEventListener("click", () => { const a = document.createElement("a"); a.href = `/api/zip/${state.sid}`; document.body.appendChild(a); a.click(); a.remove(); });
+$("#btnZipSel").addEventListener("click", () => {
+  const sel = state.items.filter(i => i.selected && i.status === "done" && i.result);
+  if(!sel.length){ toast("请先勾选已完成图片左上角的勾选框"); return; }
+  const names = sel.map(i => i.result.outName).join(",");
+  const a = document.createElement("a");
+  a.href = `/api/zip/${state.sid}?files=${encodeURIComponent(names)}`;
+  document.body.appendChild(a); a.click(); a.remove();
+  toast(`正在打包下载所选 ${sel.length} 张`);
+});
+let batchRunning = false, batchCancel = false;
+$("#btnBatch").addEventListener("click", async () => {
+  if(batchRunning){ batchCancel = true; toast("正在停止，将在当前这张完成后中断…"); return; }
+  const done = state.items.filter(i => i.status === "done" && i.result);
+  if(!done.length){ toast("没有已完成可补全的图片"); return; }
+  const prompt = (window.prompt("批量补全：输入要补全的物体提示词（中文/英文，如 椅子 / chair）") || "").trim();
+  if(!prompt) return;
+  const btn = $("#btnBatch");
+  batchRunning = true; batchCancel = false;
+  btn.textContent = "停止补全"; btn.style.background = "var(--err)";
+  let ok = 0, fail = 0;
+  for(const it of done){
+    if(batchCancel) break;
+    const fd = new FormData();
+    fd.append("file", it.file, it.name);
+    fd.append("session", state.sid);
+    fd.append("prompt", prompt);
+    fd.append("base", it.result.url);
+    try{
+      const ac = new AbortController();
+      const tm = setTimeout(() => ac.abort(), 120000);
+      const r = await fetch("/api/segment", { method:"POST", body: fd, signal: ac.signal });
+      clearTimeout(tm);
+      const j = await r.json();
+      if(j.ok){
+        const prev = it.result;
+        it.result = { ...prev, url: j.url, outName: j.outName, w: j.w, h: j.h, ms: j.ms };
+        it.refined = true;
+        updateCard(it);
+        ok++;
+      } else { fail++; toast(it.name + "：" + (j.error || "补全失败")); }
+    }catch(_){ fail++; }
+  }
+  batchRunning = false;
+  btn.textContent = "批量补全"; btn.style.background = "";
+  updateStats();
+  toast(batchCancel ? `已停止补全，成功 ${ok} 张` : `批量补全完成：成功 ${ok} 张${fail ? `，失败 ${fail} 张（已用提示词补全外的原图）` : ""} ✅`);
+});
+$("#btnOpen").addEventListener("click", () => fetch(`/api/open/${state.sid}`, {method:"POST"}));
+
+/* ---------- 设置记忆（localStorage） ---------- */
+function saveSettings(){
+  try{
+    localStorage.setItem("pixelcut_cfg", JSON.stringify({
+      model: state.model, conc: $("#conc").value, matting: state.matting, sam: $("#samModel").value
+    }));
+  }catch(_){}
+}
+function loadSettings(){
+  try{
+    const c = JSON.parse(localStorage.getItem("pixelcut_cfg") || "{}");
+    if(c.model && MODEL_NAMES[c.model]){ state.model = c.model; $("#model").value = c.model; }
+    if(c.conc){ $("#conc").value = c.conc; }
+    if(c.matting){ state.matting = true; $("#matting").checked = true; }
+    if(c.sam){ $("#samModel").value = c.sam; }
+  }catch(_){}
+}
+$("#model").addEventListener("change", e => { state.model = e.target.value; saveSettings(); });
+$("#conc").addEventListener("change", saveSettings);
+$("#matting").addEventListener("change", e => { state.matting = e.target.checked; saveSettings(); });
+$("#samModel").addEventListener("change", saveSettings);
+
+/* ---------- 灯箱 ---------- */
+let lbItem = null, lbMode = "orig", lbZoom = 1, lbTx = 0, lbTy = 0;
+function applyLbT(){ const im = $("#lbImg"); im.style.transform = `translate(${lbTx}px,${lbTy}px) scale(${lbZoom})`; }
+function resetLbT(){ lbZoom = 1; lbTx = 0; lbTy = 0; applyLbT(); }
+$("#lbImg").addEventListener("wheel", e => {
+  e.preventDefault();
+  lbZoom = Math.min(8, Math.max(0.2, lbZoom * (e.deltaY < 0 ? 1.15 : 0.87)));
+  applyLbT();
+});
+$("#lbImg").addEventListener("pointerdown", e => {
+  const sx = e.clientX, sy = e.clientY, ox = lbTx, oy = lbTy;
+  const move = ev => { lbTx = ox + (ev.clientX - sx); lbTy = oy + (ev.clientY - sy); applyLbT(); };
+  const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+  window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+});
+function openLb(it){
+  if(lbItem && lbItem._obj){ URL.revokeObjectURL(lbItem._obj); lbItem._obj = null; }
+  lbItem = it; lbMode = "orig"; resetLbT();
+  $("#lbTitle").textContent = it.name + (it.result ? `　${it.result.w}×${it.result.h}` : "");
+  const hasRes = it.status === "done";
+  $("#lbCut").style.display = hasRes ? "" : "none";
+  $("#lbDl").style.display = hasRes ? "" : "none";
+  $("#lbRefine").style.display = hasRes ? "" : "none";
+  $("#lbSegment").style.display = hasRes ? "" : "none";
+  $("#lbDl").href = it.result ? it.result.url : "#";
+  $("#lbDl").download = it.result ? it.result.outName : it.name;
+  $("#lbRefine").style.background = it.refining ? "var(--ok)" : "";
+  $("#lbSegment").style.background = it.refining ? "var(--ok)" : "";
+  setLbMode("orig");
+  $("#lb").classList.add("show");
+}
+function setLbMode(m){
+  if(m==="cut" && (!lbItem || !lbItem.result)) return;
+  lbMode = m; resetLbT();
+  $("#lbOrig").classList.toggle("on", m==="orig");
+  $("#lbCut").classList.toggle("on", m==="cut");
+  $("#lbCanvas").classList.remove("show");
+  $("#lbBody").classList.toggle("checker", m==="cut");
+  $("#lbImg").style.display = "";
+  if(m==="orig"){ if(!lbItem._obj) lbItem._obj = URL.createObjectURL(lbItem.file); $("#lbImg").src = lbItem._obj; }
+  else $("#lbImg").src = lbItem.result.url;
+}
+function closeLb(){ $("#lb").classList.remove("show"); exitRefine(); }
+$("#lbOrig").addEventListener("click", ()=>setLbMode("orig"));
+$("#lbCut").addEventListener("click", ()=>setLbMode("cut"));
+$("#lb").addEventListener("click", e => { if(e.target === $("#lb")) closeLb(); });
+window.addEventListener("keydown", e => { if(e.key==="Escape"){ closeLb(); closeHelp(); } });
+
+/* ---------- 点选精修（SAM）+ 提示词补全（CLIPSeg） ---------- */
+let refinePts = [], refineScale = 1, refineRect = null, refineMode = "pts", refineOp = "add";
+function setRefineMode(mode){
+  refineMode = mode;
+  const seg = mode === "seg";
+  $("#ptOpWrap").style.display = seg ? "none" : "";
+  $("#ptInfo").style.display = seg ? "none" : "";
+  $("#samModel").style.display = seg ? "none" : "";
+  $("#ptUndo").style.display = seg ? "none" : "";
+  $("#ptClear").style.display = seg ? "none" : "";
+  $("#segWrap").style.display = seg ? "flex" : "none";
+  $("#ptApply").style.display = "";  // 两个模式都需要「应用」按钮
+  $("#lbRefine").classList.toggle("on", mode === "pts");
+  $("#lbSegment").classList.toggle("on", mode === "seg");
+  $("#refineTip").textContent = seg
+    ? "输入要补全的物体（中文或英文），点下方常用词更快，完成后点「应用」"
+    : "点图加区域（绿色）· 切「－减」去除误抠（红色）· 可拖动微调 · 完成后点「应用」";
+}
+function openRefine(it){
+  if(!it.result){ toast("请先抠图再精修"); return; }
+  openLb(it);
+  exitRefine();
+  refinePts = [];
+  lbItem.refining = true;
+  $("#lbRefine").style.background = "var(--ok)";
+  const img = $("#lbCanvasImg");
+  img.onload = () => {
+    const rect = img.getBoundingClientRect();
+    refineRect = { w: rect.width, h: rect.height, iw: img.naturalWidth, ih: img.naturalHeight };
+  };
+  img.src = it.url;   // 用当前结果作为底图，用户可看清哪里缺
+  $("#lbCanvas").classList.add("show");
+  $("#lbImg").style.display = "none";
+  $("#refineBar").style.display = "";
+  $("#refineBar").style.flexWrap = "wrap";
+  setRefineMode("pts");
+  updatePtCount();
+  toast("在图上点击要保留的区域（如椅子，绿色点）；切「－减」可去除误抠部分");
+}
+function openSegment(it){
+  if(!it.result){ toast("请先抠图再提示词补全"); return; }
+  openLb(it);
+  exitRefine();
+  lbItem.refining = true;
+  $("#lbSegment").style.background = "var(--ok)";
+  const img = $("#lbCanvasImg");
+  img.onload = () => {
+    const rect = img.getBoundingClientRect();
+    refineRect = { w: rect.width, h: rect.height, iw: img.naturalWidth, ih: img.naturalHeight };
+  };
+  img.src = it.url;
+  $("#lbCanvas").classList.add("show");
+  $("#lbImg").style.display = "none";
+  $("#refineBar").style.display = "";
+  $("#refineBar").style.flexWrap = "wrap";
+  setRefineMode("seg");
+  $("#segPrompt").value = "";
+  $("#segPrompt").focus();
+  toast("输入要补全的物体提示词（中文或英文，如 椅子/chair），点「应用」");
+}
+function exitRefine(){
+  $("#lbCanvas").classList.remove("show");
+  $("#refineBar").style.display = "none";
+  $("#refineLoad").classList.remove("show");
+  if(lbItem) lbItem.refining = false;
+  $("#lbRefine").style.background = "";
+  $("#lbSegment").style.background = "";
+  $("#lbCanvas").querySelectorAll(".pt,.pt-bg").forEach(e => e.remove());
+  refinePts = [];
+}
+$("#lbRefine").addEventListener("click", () => { if(lbItem) openRefine(lbItem); });
+$("#lbSegment").addEventListener("click", () => { if(lbItem) openSegment(lbItem); });
+function addPtEl(x, y, label){
+  const el = document.createElement("div");
+  el.className = label === 0 ? "pt-bg" : "pt";
+  el.style.left = x + "px"; el.style.top = y + "px";
+  $("#lbCanvas").appendChild(el);
+  const img = $("#lbCanvasImg");
+  // 拖动微调
+  el.addEventListener("pointerdown", e => {
+    e.stopPropagation(); e.preventDefault();
+    const r = img.getBoundingClientRect();
+    const i = Array.prototype.indexOf.call(el.parentNode.children, el);
+    const move = ev => {
+      el.style.left = (ev.clientX - r.left) + "px";
+      el.style.top = (ev.clientY - r.top) + "px";
+    };
+    const up = ev => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      const nx = parseFloat(el.style.left), ny = parseFloat(el.style.top);
+      if(refinePts[i]){
+        refinePts[i][0] = Math.round(nx * (refineRect.iw / r.width));
+        refinePts[i][1] = Math.round(ny * (refineRect.ih / r.height));
+      }
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
+}
+$("#lbCanvas").addEventListener("click", e => {
+  if(!lbItem || !refineRect || refineMode !== "pts") return;
+  const rect = $("#lbCanvasImg").getBoundingClientRect();
+  const px = (e.clientX - rect.left) * (refineRect.iw / rect.width);
+  const py = (e.clientY - rect.top) * (refineRect.ih / rect.height);
+  const label = refineOp === "sub" ? 0 : 1;
+  refinePts.push([Math.round(px), Math.round(py), label]);
+  addPtEl(e.clientX - rect.left, e.clientY - rect.top, label);
+  updatePtCount();
+});
+// 加/减区域切换
+$("#ptAddMode").addEventListener("click", () => { refineOp = "add"; $("#ptAddMode").classList.add("on"); $("#ptSubMode").classList.remove("on"); $("#refineTip").textContent = "点图加区域（绿色）· 切「－减」去除误抠（红色）· 可拖动微调 · 完成后点「应用」"; });
+$("#ptSubMode").addEventListener("click", () => { refineOp = "sub"; $("#ptSubMode").classList.add("on"); $("#ptAddMode").classList.remove("on"); $("#refineTip").textContent = "点图去除误抠区域（红色）· 切「＋加」恢复保留 · 可拖动微调 · 完成后点「应用」"; });
+document.querySelectorAll("#segChips .chip").forEach(c => {
+  c.addEventListener("click", () => { $("#segPrompt").value = c.dataset.w; });
+});
+$("#ptUndo").addEventListener("click", () => {
+  if(!refinePts.length) return;
+  refinePts.pop();
+  const pts = $("#lbCanvas").querySelectorAll(".pt,.pt-bg");
+  if(pts.length) pts[pts.length-1].remove();
+  updatePtCount();
+});
+$("#ptClear").addEventListener("click", () => { refinePts = []; $("#lbCanvas").querySelectorAll(".pt,.pt-bg").forEach(e=>e.remove()); updatePtCount(); });
+function updatePtCount(){
+  const sub = refinePts.filter(p => p[2] === 0).length;
+  const add = refinePts.length - sub;
+  const t = (add ? "保留" + add + " " : "") + (sub ? "去除" + sub : "");
+  $("#ptCount").textContent = t || "0";
+  $("#ptCount").style.color = sub ? "#f87171" : "#34d399";
+}
+$("#ptApply").addEventListener("click", async () => {
+  if(refineMode === "seg"){
+    const prompt = ($("#segPrompt").value || "").trim();
+    if(!prompt){ toast("请输入提示词，如 chair"); return; }
+    if(!lbItem.result){ toast("请先抠图"); return; }
+    $("#refineLoad").classList.add("show");
+    const fd = new FormData();
+    fd.append("file", lbItem.file, lbItem.name);
+    fd.append("session", state.sid);
+    fd.append("prompt", prompt);
+    fd.append("base", lbItem.result.url);
+    try{
+      const ac = new AbortController();
+      const tm = setTimeout(() => ac.abort(), 180000);
+      const r = await fetch("/api/segment", { method:"POST", body: fd, signal: ac.signal });
+      clearTimeout(tm);
+      const j = await r.json();
+      if(j.ok){
+        const prev = lbItem.result;
+        lbItem.result = { ...prev, url: j.url, outName: j.outName, w: j.w, h: j.h, ms: j.ms };
+        lbItem.refined = true;
+        updateCard(lbItem);
+        setLbMode("cut");
+        toast(`已补全「${prompt}」区域 ✅`);
+        exitRefine();
+      } else {
+        toast(j.error || "提示词补全失败");
+        $("#refineLoad").classList.remove("show");
+      }
+    }catch(err){
+      toast("提示词补全失败：" + err.message);
+      $("#refineLoad").classList.remove("show");
+    }
+    return;
+  }
+  if(!refinePts.length){ toast("请先点击标记要保留的区域"); return; }
+  if(!lbItem.result){ toast("请先抠图"); return; }
+  $("#refineLoad").classList.add("show");
+  const fd = new FormData();
+  fd.append("file", lbItem.file, lbItem.name);
+  fd.append("session", state.sid);
+  fd.append("points", JSON.stringify(refinePts));
+  fd.append("sam_model", $("#samModel").value);
+  fd.append("base", lbItem.result.url);
+  try{
+    const ac = new AbortController();
+    const tm = setTimeout(() => ac.abort(), 180000);
+    const r = await fetch("/api/refine", { method:"POST", body: fd, signal: ac.signal });
+    clearTimeout(tm);
+    const j = await r.json();
+    if(j.ok){
+      // 更新结果为精修版本（保留原图文件用于继续精修）
+      const prev = lbItem.result;
+      lbItem.result = { ...prev, url: j.url, outName: j.outName, w: j.w, h: j.h, ms: j.ms };
+      lbItem.refined = true;
+      updateCard(lbItem);
+      setLbMode("cut");
+      toast("精修完成，已补全所选区域 ✅");
+      exitRefine();
+    } else {
+      toast(j.error || "精修失败");
+      $("#refineLoad").classList.remove("show");
+    }
+  }catch(err){
+    toast("精修失败：" + err.message);
+    $("#refineLoad").classList.remove("show");
+  }
+});
+
+/* ---------- 启动检查 ---------- */
+(async () => {
+  if(location.protocol === "file:"){
+    showBanner("⚠ 请通过双击「启动抠图工具.bat」打开本工具", true);
+    return;
+  }
+  loadSettings();
+  try{
+    let onboarded = "0";
+    try{ onboarded = localStorage.getItem("pixelcut_onboarded") || "0"; }catch(_){}
+    if(onboarded !== "1"){ setTimeout(obShow, 400); }
+  }catch(_){}
+  try{
+    const r = await fetch("/api/health");
+    const j = await r.json();
+    if(!j.ok) throw 0;
+    const miss = Object.keys(MODEL_NAMES).filter(k => j.models && j.models[k] === false).map(k => MODEL_NAMES[k]);
+    if(j.broken && j.broken.length){
+      showBanner(`⚠ 以下模型文件损坏，请重新获取完整文件后覆盖：${j.broken.map(k => MODEL_NAMES[k] || k).join("、")}`, true);
+    } else if(miss.length) showBanner(`ℹ ${miss.join("、")}尚未下载，选择对应模型时会自动联网下载。其余模型已就绪。`);
+  }catch(_){
+    showBanner("⚠ 无法连接本地服务，请先运行「启动抠图工具.bat」", true);
+  }
+})();
+function showBanner(msg, warn){ const b = $("#banner"); b.textContent = msg; b.classList.toggle("warn", !!warn); b.style.display = "block"; }
+
+/* ---------- 帮助中心 ---------- */
+function openHelp(){ $("#helpBox").classList.add("show"); }
+function closeHelp(){ $("#helpBox").classList.remove("show"); }
+$("#btnHelp").addEventListener("click", openHelp);
+$("#helpBox").addEventListener("click", e => { if(e.target === $("#helpBox")) closeHelp(); });
+$("#htabGuide").addEventListener("click", () => { $("#htabGuide").classList.add("on"); $("#htabFaq").classList.remove("on"); $("#helpGuide").style.display = ""; $("#helpFaq").style.display = "none"; });
+$("#htabFaq").addEventListener("click", () => { $("#htabFaq").classList.add("on"); $("#htabGuide").classList.remove("on"); $("#helpGuide").style.display = "none"; $("#helpFaq").style.display = ""; });
+document.querySelectorAll(".faq-q").forEach(q => q.addEventListener("click", () => q.closest(".faq-item").classList.toggle("open")));
+
+/* ---------- 首次引导 ---------- */
+const OB_STEPS = [
+  { title: "拖入图片或整个文件夹", text: "把图片、或一个装满图片的文件夹<b>拖到窗口任意位置</b>，或点「选择图片 / 打开文件夹」。选好后图片先进入列表，<b>不会立刻抠图</b>，你可以先确认。", ico: '<path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z"/><circle cx="12" cy="13" r="3.5"/>' },
+  { title: "点「一键抠图」批量处理", text: "确认无误后点<b>「一键抠图」</b>，工具在本机用所选模型批量抠图，<b>原图多少像素、结果就是多少像素</b>，全程免费、不上传网络。", ico: '<path d="M5 12h14M13 6l6 6-6 6"/>' },
+  { title: "精修 / 补全 / 下载", text: "单张不理想？点卡片<b>「精修」</b>在缺失处（如椅子）点一下补上，或<b>「提示词补全」</b>输入物体名。完成点卡片「下载」或工具栏「下载全部 ZIP」。", ico: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>' },
+];
+let obStep = 0;
+function obShow(){
+  const s = OB_STEPS[obStep];
+  $("#obTitle").textContent = s.title;
+  $("#obText").innerHTML = s.text;
+  $("#obIco").innerHTML = '<svg viewBox="0 0 24 24">' + s.ico + '</svg>';
+  document.querySelectorAll(".ob-dot").forEach((d,i) => d.classList.toggle("on", i === obStep));
+  $("#obNext").textContent = obStep < 2 ? "下一步" : "开始使用";
+  $("#onboard").classList.add("show");
+}
+function obNext(){
+  if(obStep < 2){ obStep++; obShow(); }
+  else obClose();
+}
+function obSkip(){ obClose(); }
+function obClose(){
+  $("#onboard").classList.remove("show");
+  try{ localStorage.setItem("pixelcut_onboarded", "1"); }catch(_){}
+}
+
+/* ---------- Ctrl+V 粘贴入列 ---------- */
+window.addEventListener("paste", e => {
+  const t = e.target;
+  if(t && t.closest && t.closest("input,textarea")) return;  // 输入框内粘贴文本不拦截
+  const items = e.clipboardData && e.clipboardData.items;
+  if(!items) return;
+  const files = [];
+  for(const it of items){
+    if(it.kind === "file" && it.type && it.type.startsWith("image/")){
+      const f = it.getAsFile();
+      if(f) files.push(f);
+    }
+  }
+  if(files.length){ e.preventDefault(); addFiles(files); }
+});
+
+/* ---------- 全窗拖放高亮 ---------- */
+(function(){
+  let dragDepth = 0;
+  window.addEventListener("dragenter", e => {
+    e.preventDefault(); dragDepth++;
+    $("#dropMask").classList.add("show");
+  });
+  window.addEventListener("dragover", e => e.preventDefault());
+  window.addEventListener("dragleave", e => {
+    e.preventDefault(); dragDepth--;
+    if(dragDepth <= 0){ dragDepth = 0; $("#dropMask").classList.remove("show"); }
+  });
+  window.addEventListener("drop", async e => {
+    e.preventDefault(); dragDepth = 0;
+    $("#dropMask").classList.remove("show");
+    if(e.dataTransfer && e.dataTransfer.items && e.dataTransfer.items.length){
+      addFiles(await collectFromDataTransfer(e.dataTransfer));
+    }
+  });
+})();
+
+/* ---------- 处理中刷新保护 ---------- */
+window.addEventListener("beforeunload", e => {
+  if(state.running || batchRunning){ e.preventDefault(); e.returnValue = ""; }
+});
+</script>
+</body>
+</html>

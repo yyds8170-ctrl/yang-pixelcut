@@ -1,0 +1,7 @@
+flask>=3.0
+pillow>=10.0
+numpy
+scipy
+onnxruntime>=1.17
+rembg==2.0.81
+tokenizers
