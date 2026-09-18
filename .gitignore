@@ -1,0 +1,16 @@
+# 模型与运行环境（体积大，GitHub 无法承载，详见 README）
+models/
+runtime/
+
+# 本地输出与日志
+抠图结果/
+server.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 系统
+.DS_Store
+Thumbs.db
