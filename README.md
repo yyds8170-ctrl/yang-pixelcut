@@ -14,24 +14,31 @@
 [![费用](https://img.shields.io/badge/费用-永久免费-success)]()
 [![模型托管](https://img.shields.io/badge/模型-Hugging%20Face-FFD21E)](https://huggingface.co/jkyy/yang-pixelcut-models)
 
+<img src="assets/screenshots/01-home.png" width="860" alt="主界面 · RMBG-3.0">
+
 </div>
 
 ---
 
-## 🆕 v1.3 · 已集成 RMBG-3.0（BRIA 2026-11 发布）
+## 🆕 v1.4 · RMBG-3.0 全面落地
 
-> 官方在 234 张困难图上排名第 1，对 RMBG-2.0 胜率 **60.9%**。
+> BRIA 2026-11 发布的新一代 8.1B 抠图模型，官方在 234 张困难图上排名第 1，对 RMBG-2.0 胜率 **60.9%**。
 > 最大不同：**可以用一句话指定要抠什么** —— 「人坐椅子」这类图能把椅子完整留下。
 
 | 对比项 | RMBG-2.0 | **RMBG-3.0** |
 |---|---|---|
 | 定位 | 速度与批量 | **边缘质量：发丝、毛皮、玻璃、精细细节** |
-| 人坐椅子 | 椅子易丢失（前景 54%） | **提示词「人物和椅子一起抠」→ 椅子布面/扶手/腿全保留（57.9%）** |
-| 发丝/透明物 | 较好 | **明显更干净** |
-| 本机速度（RTX 4060 Ti 8GB） | 约 10 秒/张 | 约 70~90 秒/张 |
-| 模型体积 | 977MB | 约 24GB |
+| 人坐椅子 | 椅子易丢失（前景 54%） | **提示词「人物和椅子一起抠」→ 椅布/扶手/椅腿全保留（57.9%）** |
+| 发丝 / 透明物 | 较好 | **明显更干净** |
+| 本机速度（RTX 4060 Ti 8GB） | 约 10 秒/张 | 约 67~90 秒/张 |
+| 模型体积 | 977 MB | 约 24 GB |
 
-![RMBG-3.0 人椅对比](assets/screenshots/01-home.png)
+**顺手修的几个问题**
+
+- 首次加载等待从 150 秒延长到 300 秒，避免还没加载完就降级出错误结果
+- 服务启动后自动在后台预热模型，打开页面时已经在加载了
+- 启动脚本改成 CRLF + GBK，Windows 控制台中文不再乱码
+- `runtime_rmbg3` 已经自带 Python 和 PyTorch，拷到别的电脑直接能用
 
 ---
 
@@ -42,9 +49,9 @@
 | 🖱️ **批量处理** | 拖入图片或**整个文件夹**，确认后一键抠图；支持 JPG / PNG / WebP / BMP / TIFF |
 | 🎯 **原分辨率输出** | 原图 5464×5464，抠出来仍是 5464×5464，**绝不缩水** |
 | 🔒 **全程本地** | 模型与处理都在本机完成，图片不上传网络，无数量限制 |
-| 🧠 **多模型可选** | **RMBG-3.0** / RMBG-2.0 / BiRefNet 四档 / U²-Net / ViTMatte 精细边缘 / SAM 精修 / CLIPSeg 提示词 |
-| 💬 **提示词抠图** | RMBG-3.0 支持「人物和椅子一起抠」这类自然语言指令，中文可直接输入 |
-| 🎨 **点选精修** | 结果不理想？在图上点几下补全人物、椅子等任何区域（SAM 双档） |
+| 🧠 **12 款模型** | **RMBG-3.0** / RMBG-2.0 / BiRefNet 四档 / U²-Net / ViTMatte / SAM 双档 / CLIPSeg |
+| 💬 **提示词抠图** | RMBG-3.0 支持「人物和椅子一起抠」这类自然语言指令，中文直接输入 |
+| 🎨 **点选精修** | 结果不理想？在图上点几下补全人物、椅子等任何区域（SAM ViT-B / ViT-L 可选） |
 | ✏️ **提示词补全** | 输入「椅子 / chair / 帽子…」自动补全物体，中英文均可，支持批量 |
 | ⚡ **并发加速** | 1 / 2 / 3 档并发，多核更快 |
 | 💾 **结果管理** | 自动分批次保存，支持下载全部 ZIP / 下载所选 / 打开结果夹 |
@@ -59,8 +66,7 @@
 ③ 精修 / 下载              →   不满意的点选精修，最后下载全部 ZIP
 ```
 
-> 想解决「人坐椅」这类丢物体的图：模型切到 **RMBG-3.0**，在「提示词」框写
-> **人物和椅子一起抠**，再点一键抠图即可。
+> 「人坐椅」这类容易丢物体的图：模型切到 **RMBG-3.0**，提示词写 **人物和椅子一起抠**，再点一键抠图。
 
 ---
 
@@ -68,9 +74,9 @@
 
 ### 方式 A：绿色版（拷贝即用，推荐）
 
-完整绿色版包含 `models`（约 30GB，含 RMBG-3.0）与 `runtime`（约 500MB），受 GitHub 单文件 100MB 限制**不存放在本仓库**。如果你已有绿色版目录，将两个文件夹拷贝到本项目根目录，双击 `启动抠图工具.bat` 即可使用。
+完整绿色版包含 `models`（约 30GB）与 `runtime` / `runtime_rmbg3`（约 5.5GB），受 GitHub 单文件 100MB 限制**不存放在本仓库**。拿到绿色版目录后，双击 `启动抠图工具.bat` 即可使用，**无需安装 Python**。
 
-### 方式 B：从源码运行（模型自动下载）
+### 方式 B：从源码运行
 
 ```bash
 pip install -r requirements.txt
@@ -81,8 +87,6 @@ python server.py
 
 ### 方式 C：Hugging Face 下载模型（推荐）
 
-模型已完整托管：
-
 > 🌐 **模型地址**：[https://huggingface.co/jkyy/yang-pixelcut-models](https://huggingface.co/jkyy/yang-pixelcut-models)
 
 ```bash
@@ -90,7 +94,9 @@ pip install huggingface_hub
 huggingface-cli download jkyy/yang-pixelcut-models --local-dir models
 ```
 
-RMBG-3.0 权重较大（约 24GB），在 Hugging Face 上单独存放于 `rmbg3/` 子目录。
+仓库已完整托管 **全部 12 款模型（约 30GB）**：
+- 快速档 ONNX 模型在 `models/` 下（约 5.96GB）
+- RMBG-3.0 完整权重在 `models/rmbg3/` 下（约 24GB，已转 diffusers 格式，可直接加载）
 
 ---
 
@@ -98,7 +104,7 @@ RMBG-3.0 权重较大（约 24GB），在 Hugging Face 上单独存放于 `rmbg3
 
 | 界面选项 | 模型 | 特点 |
 |---|---|---|
-| **★ RMBG-3.0 · 全球最强（新 · 可提示词）** | `bria-rmbg-3.0` | 2026-11 新一代 8.1B 模型，官方困难图排名第一；支持自然语言指定主体，人坐椅可完整保留；约 70~90 秒/张 |
+| **★ RMBG-3.0 · 全球最强（新 · 可提示词）** | `bria-rmbg-3.0` | 2026-11 新一代 8.1B 模型，官方困难图排名第一；支持自然语言指定主体，人坐椅可完整保留；约 67~90 秒/张 |
 | **全球最强 · RMBG-2.0** | `bria-rmbg` | 综合效果最好，人物/商品/杂物都稳，速度快（约 10 秒/张） |
 | **完整增强 · RMBG+HRSOD** | `bria-rmbg + birefnet-hrsod` | 双模型取并集，最不易丢物体（人+椅连坐场景） |
 | **高清 · BiRefNet-Lite** | `birefnet-general-lite` | 速度与效果平衡，适合大批量 |
@@ -111,14 +117,13 @@ RMBG-3.0 权重较大（约 24GB），在 Hugging Face 上单独存放于 `rmbg3
 | **点选精修** | `sam`（ViT-B / ViT-L） | 交互式分割，点选补全区域 |
 | **提示词补全** | `clipseg` | 按文字提示补全物体 |
 
-> 📦 全部模型下载：[jkyy/yang-pixelcut-models · Hugging Face](https://huggingface.co/jkyy/yang-pixelcut-models)
-
 ### RMBG-3.0 运行要求
 
 - NVIDIA 显卡、显存 **8GB 以上**（纯 CPU 可跑但很慢）
-- 首次加载约 20 秒（24GB 权重在后台预热）
-- 8GB 显存下每张 70~90 秒属正常：模型必须分块进出显存，这是 PCIe 带宽决定的
-- 模型未就绪时自动降级到 RMBG-2.0 并在结果上给出提示，不会卡死
+- **首次加载约 2~3 分钟**（24GB 权重映射；服务启动后自动后台预热）
+- 未就绪时会**等待加载完成**（最长 5 分钟）而不是降级，保证结果不乱
+- 8GB 显存下每张 67~90 秒属正常：24GB 模型必须分块进出显存，这是 PCIe 带宽决定的
+- **开启 Windows「高性能」电源模式可再快约 2 倍**（CPU 侧编码提速明显）
 - 许可：**CC-BY-NC-4.0（仅限个人非商业用途）**
 
 ---
@@ -127,20 +132,21 @@ RMBG-3.0 权重较大（约 24GB），在 Hugging Face 上单独存放于 `rmbg3
 
 ```
 yang-pixelcut/
-├── 启动抠图工具.bat   ← 绿色版一键启动
-├── server.py           本地服务端（Flask）
-├── rmbg3_server.py     RMBG-3.0 推理子服务（独立进程，避免阻塞主服务）
-├── rmbg3_infer.py      RMBG-3.0 命令行推理脚本
-├── requirements.txt    依赖清单
+├── 启动抠图工具.bat     ← 绿色版一键启动（CRLF + GBK，中文不乱码）
+├── server.py             本地服务端（Flask）
+├── rmbg3_server.py       RMBG-3.0 推理子服务（独立进程，不阻塞主服务）
+├── rmbg3_infer.py        RMBG-3.0 命令行推理脚本
+├── requirements.txt      依赖清单
 ├── web/
-│   └── index.html      操作页面（单文件）
-├── models/             模型目录（自动下载 / 绿色版内置）
-│   └── rmbg3/          RMBG-3.0 权重（约 24GB）
-├── runtime/            便携 Python 运行环境（绿色版内置）
-├── runtime_rmbg3/      RMBG-3.0 推理环境（依赖本机 PyTorch）
-├── 抠图结果/           输出目录（按时间批次）
-├── 使用说明.txt        完整图文使用说明
-└── LICENSE             PolyForm Noncommercial 1.0.0
+│   └── index.html        操作页面（单文件）
+├── assets/screenshots/   README 截图
+├── models/               模型目录（自动下载 / 绿色版内置）
+│   └── rmbg3/            RMBG-3.0 权重（约 24GB）
+├── runtime/              便携 Python 环境（ONNX 快速模型用）
+├── runtime_rmbg3/        RMBG-3.0 推理环境（已完全自包含）
+├── 抠图结果/             输出目录（按时间批次）
+├── 使用说明.txt          完整图文使用说明
+└── LICENSE               PolyForm Noncommercial 1.0.0
 ```
 
 ---
@@ -151,16 +157,19 @@ yang-pixelcut/
 A：内置了 12 个开源抠图模型，其中 RMBG-3.0 单独占约 24GB。不需要的模型可以在 `models/` 下删除，不影响启动；删掉 `models/rmbg3` 后界面会自动回退到 RMBG-2.0。
 
 **Q：RMBG-3.0 为什么这么慢？**
-A：它是 8.1B 参数的大模型（24GB 权重），8GB 显存必须把权重分块搬进搬出。实测在 RTX 4060 Ti 上约 70~90 秒/张，显存 16GB 以上会明显更快。要速度就用 RMBG-2.0（约 10 秒/张）。
+A：它是 8.1B 参数的大模型（24GB 权重），8GB 显存必须把权重分块搬进搬出。实测 RTX 4060 Ti 约 67~90 秒/张，显存 16GB 以上会明显更快。也试过 int8 量化、torch.compile，在这张卡上反而更慢（反量化开销大于搬运节省），所以最后保持逐层 offload。
 
 **Q：人坐椅子，椅子总是被抠掉怎么办？**
-A：选 **RMBG-3.0**，提示词写「人物和椅子一起抠」。它会把这个描述里点到的对象全部保留。实测椅背布面、木扶手、金属腿均完整保留。备选方案：完整增强模型 / 点选精修 / 提示词补全。
+A：选 **RMBG-3.0**，提示词写「人物和椅子一起抠」。实测椅背布面、木扶手、金属腿均完整保留。备选：完整增强模型 / 点选精修 / 提示词补全。
+
+**Q：第一次点抠图要等很久？**
+A：首次使用需要加载 24GB 权重（约 2~3 分钟），服务启动时会自动预热。之后每张约 67~90 秒。启动时建议右键「以管理员身份运行」批处理，可开启高性能电源模式，快约 2 倍。
 
 **Q：模型从哪里下载？**
-A：绿色版内置；源码方式运行则首次使用自动下载；也可以从 [Hugging Face](https://huggingface.co/jkyy/yang-pixelcut-models) 手动下载整个模型包。
+A：绿色版内置；源码方式首次使用自动下载；也可以从 [Hugging Face](https://huggingface.co/jkyy/yang-pixelcut-models) 下载完整模型包（含 RMBG-3.0）。
 
-**Q：打开就闪退怎么办？**
-A：绿色版请确认 `models` 与 `runtime` 两个文件夹已放在项目根目录；源码方式请先 `pip install -r requirements.txt`。
+**Q：打开就闪退 / 满屏"不是内部或外部命令"？**
+A：已修复版本。请使用仓库中最新的 `启动抠图工具.bat`（CRLF + GBK 编码），并确认 `models`、`runtime`、`runtime_rmbg3` 都在项目根目录。
 
 **Q：输出分辨率会缩水吗？**
 A：不会。输出 PNG 与原图完全同分辨率，原图 5464×5464 抠出来仍是 5464×5464（已用 5464×5464 实图验证）。
@@ -172,7 +181,7 @@ A：都不需要。全程本机处理，永久免费。
 
 ## 📖 使用帮助
 
-![帮助中心](assets/screenshots/04-help.png)
+<img src="assets/screenshots/04-help.png" width="860" alt="帮助中心 · RMBG-3.0 模型说明">
 
 ---
 
