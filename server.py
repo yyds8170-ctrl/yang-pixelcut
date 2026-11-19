@@ -206,9 +206,12 @@ def rmbg3_dir() -> Path:
 
 
 def rmbg3_python():
-    """RMBG-3.0 专用解释器（含 torch / diffusers）。缺失则视为不可用。"""
-    p = ROOT / "runtime_rmbg3" / "Scripts" / "python.exe"
-    return p if p.exists() else None
+    """RMBG-3.0 专用解释器（自包含便携版，含 torch / diffusers）。缺失则视为不可用。"""
+    for rel in ("runtime_rmbg3/python.exe", "runtime_rmbg3/Scripts/python.exe"):
+        p = ROOT / rel
+        if p.exists():
+            return p
+    return None
 
 
 def rmbg3_files_ok() -> bool:
