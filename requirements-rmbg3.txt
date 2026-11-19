@@ -1,0 +1,22 @@
+# RMBG-3.0 推理环境依赖（可选组件）
+#
+# RMBG-3.0 是一个 8.1B 参数的扩散式抠图模型，运行在独立的推理进程里，
+# 与主服务（rembg + onnxruntime）互不干扰。
+#
+# 安装方式（需要 NVIDIA 显卡 + CUDA）：
+#   python -m venv runtime_rmbg3
+#   runtime_rmbg3\Scripts\pip install -r requirements-rmbg3.txt
+#
+# 如果本机已经装过 ComfyUI 等带 PyTorch 的环境，可以用
+#   python -m venv --system-site-packages runtime_rmbg3
+# 复用已装好的 torch，省下约 3GB 下载。
+
+torch>=2.4
+torchvision>=0.19
+diffusers>=0.43.0
+transformers>=5.0.0
+accelerate>=1.0.0
+safetensors>=0.4.0
+Pillow>=10.0.0
+flask>=3.0.0
+huggingface_hub>=0.26.0
