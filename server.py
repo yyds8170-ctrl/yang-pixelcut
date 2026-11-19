@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import socket
+import subprocess
 import threading
 import time
 import traceback
@@ -61,9 +62,10 @@ MODEL_MIN_BYTES = {  # 各模型文件实际大小（字节），不足 95% 视�
     "sam_l": 1_100_000_000,
 }
 MODEL_KEYS["clipseg"] = "clipseg"  # 提示词抠图·CLIPSeg（文字→掩膜）
+MODEL_KEYS["rmbg3"] = "rmbg3"      # 全球最强·RMBG-3.0（Fibo2 扩散模型，独立后台进程）
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 # 批量抠图可选模型（不含交互式的 SAM/CLIPSeg，防止误入会话）
-PROCESS_MODELS = {"rmbg2", "enhance", "hrsod", "quality", "portrait", "massive", "fast", "human"}
+PROCESS_MODELS = {"rmbg2", "enhance", "hrsod", "quality", "portrait", "massive", "fast", "human", "rmbg3"}
 MAX_PIXELS = 100_000_000  # 约 1 亿像素，足够 5464×5464 并留余量
 
 # 各模型的大致常驻内存（GB），用于大图处理前预检
@@ -71,6 +73,7 @@ _MODEL_MEM_GB = {
     "enhance": 3.2, "rmbg2": 1.6, "hrsod": 1.6, "quality": 0.7,
     "portrait": 1.6, "massive": 1.6, "fast": 0.4, "human": 0.4,
     "sam": 0.7, "sam_l": 1.9,
+    "rmbg3": 0.4,   # 推理在独立进程，本进程只做转发
 }
 _broken_models = set()  # 已知文件损坏/无法加载的模型
 
@@ -174,7 +177,17 @@ def index():
 @app.get("/api/health")
 def health():
     models = {k: model_ready(k) and k not in _broken_models for k in MODEL_KEYS}
-    return jsonify(ok=True, models=models, broken=sorted(_broken_models), version="1.2")
+    st = rmbg3_state() if rmbg3_ready() else {"ok": False}
+    rmbg3_info = {
+        "installed": rmbg3_ready(),
+        "worker": bool(st.get("ok")),
+        "ready": bool(st.get("ready")),
+        "device": st.get("device"),
+    }
+    if rmbg3_info["installed"] and not rmbg3_info["worker"]:
+        _warm_rmbg3_async()
+    return jsonify(ok=True, models=models, broken=sorted(_broken_models),
+                   version="1.3", rmbg3=rmbg3_info)
 
 
 def model_file(key: str) -> Path:
@@ -182,7 +195,141 @@ def model_file(key: str) -> Path:
     return get_model_dir() / name / f"{name}.onnx"
 
 
+# ---------- RMBG-3.0（Fibo 2.0 蒸馏扩散模型·独立后台进程） ----------
+RMBG3_PORT = int(os.environ.get("RMBG3_PORT", "8543"))
+_rmbg3_proc = None
+_rmbg3_lock = threading.Lock()
+
+
+def rmbg3_dir() -> Path:
+    return ROOT / "models" / "rmbg3"
+
+
+def rmbg3_python():
+    """RMBG-3.0 专用解释器（含 torch / diffusers）。缺失则视为不可用。"""
+    p = ROOT / "runtime_rmbg3" / "Scripts" / "python.exe"
+    return p if p.exists() else None
+
+
+def rmbg3_files_ok() -> bool:
+    d = rmbg3_dir()
+    try:
+        tf = (d / "transformer" / "diffusion_pytorch_model.safetensors").stat().st_size
+        te = (d / "text_encoder" / "model.safetensors").stat().st_size
+        va = (d / "vae" / "diffusion_pytorch_model.safetensors").stat().st_size
+        return tf >= 14_000_000_000 and te >= 8_000_000_000 and va >= 300_000_000
+    except OSError:
+        return False
+
+
+def rmbg3_ready() -> bool:
+    return rmbg3_files_ok() and rmbg3_python() is not None
+
+
+def _http_json(url, payload=None, timeout=8):
+    import urllib.request
+
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    req = urllib.request.Request(
+        url, data=data, headers={"Content-Type": "application/json"}
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def rmbg3_state() -> dict:
+    try:
+        return _http_json(f"http://127.0.0.1:{RMBG3_PORT}/health", timeout=3)
+    except Exception:  # noqa: BLE001
+        return {"ok": False}
+
+
+def ensure_rmbg3_worker():
+    """确保 RMBG-3.0 后台进程存活；返回 (ok, message)。"""
+    global _rmbg3_proc
+    if not rmbg3_ready():
+        return False, "RMBG-3.0 模型文件或专用运行时缺失"
+    if rmbg3_state().get("ok"):
+        return True, "ok"
+    with _rmbg3_lock:
+        if rmbg3_state().get("ok"):
+            return True, "ok"
+        try:
+            flags = 0x08000000 if os.name == "nt" else 0   # CREATE_NO_WINDOW
+            env = dict(os.environ)
+            env.setdefault("RMBG3_DEVICE", "gpu")
+            logf = open(ROOT / "_rmbg3_worker.log", "a", encoding="utf-8")
+            _rmbg3_proc = subprocess.Popen(
+                [str(rmbg3_python()), str(ROOT / "rmbg3_server.py"), str(RMBG3_PORT)],
+                cwd=str(ROOT), env=env, creationflags=flags,
+                stdout=logf, stderr=subprocess.STDOUT,
+            )
+            _log.info("启动 RMBG-3.0 后台进程 pid=%s", _rmbg3_proc.pid)
+        except Exception as e:  # noqa: BLE001
+            _log.exception("RMBG-3.0 后台进程启动失败")
+            return False, f"后台进程启动失败：{e}"
+    # 首次加载 15-40 秒（含 15GB 权重映射）
+    for _ in range(150):
+        time.sleep(1)
+        st = rmbg3_state()
+        if st.get("ready"):
+            return True, "ok"
+        if st.get("error"):
+            return False, f"RMBG-3.0 加载失败：{st['error']}"
+    return False, "RMBG-3.0 加载超时"
+
+
+_warm_lock = threading.Lock()
+_warm_running = [False]
+
+
+def _warm_rmbg3_async():
+    """后台预热 RMBG-3.0 进程（不阻塞请求）。"""
+    with _warm_lock:
+        if _warm_running[0]:
+            return
+        _warm_running[0] = True
+
+    def _run():
+        try:
+            ok, msg = ensure_rmbg3_worker()
+            _log.info("RMBG-3.0 预热结果: %s (%s)", ok, msg)
+        finally:
+            with _warm_lock:
+                _warm_running[0] = False
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def infer_rmbg3(img, prompt=None, size=1024):
+    """调用后台进程完成抠图，返回 RGBA（与原图同尺寸）。"""
+    ok, msg = ensure_rmbg3_worker()
+    if not ok:
+        raise ValueError(msg)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    payload = {
+        "image_b64": base64.b64encode(buf.getvalue()).decode("ascii"),
+        "prompt": (prompt or "").strip(),
+        "size": int(size or 1024),
+    }
+    try:
+        r = _http_json(f"http://127.0.0.1:{RMBG3_PORT}/infer_json", payload, timeout=1200)
+    except Exception as e:  # noqa: BLE001
+        raise ValueError(f"RMBG-3.0 后台通信失败：{e}") from e
+    if not r.get("ok"):
+        raise ValueError(r.get("error") or "RMBG-3.0 推理失败")
+    alpha = Image.open(io.BytesIO(base64.b64decode(r["alpha"]))).convert("L")
+    if alpha.size != img.size:
+        alpha = alpha.resize(img.size, Image.LANCZOS)
+    out = img.copy()
+    out.putalpha(alpha)
+    return out
+
+
 def model_ready(key: str) -> bool:
+    if key == "rmbg3":
+        return rmbg3_ready()
     if key == "enhance":  # 完整增强依赖 RMBG-2.0 与 HRSOD 两个模型
         return model_ready("rmbg2") and model_ready("hrsod")
     if key == "sam":  # SAM 精修：encoder + decoder 两个文件
@@ -480,8 +627,16 @@ def _infer_enhance(img):
     return out
 
 
-def infer_with_fallback(img, key: str):
+def infer_with_fallback(img, key: str, prompt: str = "", size: int = 1024):
     """执行抠图；大模型不可用时自动降级到快速模型，返回 (结果, 实际模型key, 原因)。"""
+    if key == "rmbg3":
+        try:
+            return infer_rmbg3(img, prompt, size), key, None
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+            _log.exception("RMBG-3.0 推理失败，降级")
+            s = get_session("fast")
+            return rembg.remove(img, session=s), "fast", "rmbg3"
     if key == "enhance":
         try:
             return _infer_enhance(img), key, None
@@ -719,18 +874,28 @@ def api_process():
 
     t0 = time.time()
     warning = None
+    prompt = (request.form.get("prompt") or "").strip()
+    try:
+        rmbg3_size = int(request.form.get("size", "1024") or 1024)
+    except (TypeError, ValueError):
+        rmbg3_size = 1024
     try:
         with _infer_sem:
-            out, used_key, reason = infer_with_fallback(img, key)
+            out, used_key, reason = infer_with_fallback(img, key, prompt, rmbg3_size)
             if used_key != key:
-                if reason == "notready":
+                if reason == "rmbg3":
+                    warning = "RMBG-3.0 未能完成（可能是显存/后台进程问题），本张已临时改用「通用·快速」模型"
+                elif reason == "notready":
                     if key in _broken_models:
                         warning = "所选模型文件损坏，本张已临时改用「通用·快速」模型（可查看 server.log）"
                     else:
                         warning = "所选模型文件尚未下载完成，本张已临时改用「通用·快速」模型，稍后可重试"
                 else:
                     warning = "系统虚拟内存不足，本张已自动改用「通用·快速」模型；关闭 Photoshop 等大程序后可继续用高清模型"
-            if matting:
+            if used_key == "rmbg3":
+                # RMBG-3.0 本身输出软 alpha（抗锯齿/发丝级），不做二次边缘加工，避免破坏细节
+                pass
+            elif matting:
                 # 精细边缘升级：ViTMatte 网络（比 pymatting 闭式求解更快、发丝细节更好），
                 # 阈值更保发丝；输出自动去色污染，避免边缘残留背景色/发黑
                 try:
