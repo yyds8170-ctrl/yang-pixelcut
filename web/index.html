@@ -356,6 +356,7 @@
       <div class="field">
         <span class="lab">模型</span>
         <select id="model">
+          <option value="rmbg3">RMBG-3.0 · 全球最强（新 · 可提示词）</option>
           <option value="rmbg2" selected>全球最强 · RMBG-2.0（默认）</option>
           <option value="enhance">完整增强 · RMBG+HRSOD（最完整）</option>
           <option value="hrsod">显著目标 · HRSOD（高分辨率）</option>
@@ -364,6 +365,18 @@
           <option value="massive">至尊 · BiRefNet-Massive</option>
           <option value="fast">通用 · 更快（U²-Net）</option>
           <option value="human">人像 · U²-Net Human</option>
+        </select>
+      </div>
+      <div class="field" id="promptField" style="display:none;margin-left:10px" title="RMBG-3.0 支持用一句话指定要抠的主体">
+        <span class="lab">提示词</span>
+        <input id="prompt" placeholder="人物和椅子一起抠 / 只抠衣服" maxlength="400" />
+      </div>
+      <div class="field" id="sizeField" style="display:none;margin-left:10px" title="RMBG-3.0 的推理分辨率：越低越快">
+        <span class="lab">速度档</span>
+        <select id="r3size">
+          <option value="1024" selected>标准 · 约 70-90 秒</option>
+          <option value="1536">精细 · 约 2-4 分钟</option>
+          <option value="768">较省 · 约 60 秒</option>
         </select>
       </div>
       <label class="switch"><input type="checkbox" id="matting"><span>精细边缘</span></label>
@@ -530,8 +543,14 @@
       <div class="help-sec">
         <h3>模型怎么选（顶部下拉）</h3>
         <div class="help-card">
-          <h4>全球最强 · RMBG-2.0（默认）</h4>
-          <p>综合效果最好的通用抠图，人物/商品/杂物都稳。<b>首选。</b></p>
+          <h4>★ RMBG-3.0 · 全球最强（新 · 可提示词）</h4>
+          <p>BRIA AI 2026 年 11 月发布的新一代模型，官方在 234 张困难图上排名第一（对 RMBG-2.0 胜率 60.9%）。
+          最大不同：<b>可以输入一句话指定要抠什么</b>，所以「人坐椅子」这类图能把椅子完整保留，发丝/毛皮/玻璃/透明边缘也明显更干净。
+          速度约 70~90 秒/张（需 NVIDIA 8GB+ 显存），属效果优先选项。</p>
+        </div>
+        <div class="help-card">
+          <h4>全球最强 · RMBG-2.0</h4>
+          <p>综合效果最好的通用抠图，人物/商品/杂物都稳，速度快（约 10 秒/张）。<b>大批量首选。</b></p>
         </div>
         <div class="help-card">
           <h4>完整增强 · RMBG+HRSOD（最完整）</h4>
@@ -555,10 +574,29 @@
         </div>
       </div>
       <div class="help-sec">
+        <h3>RMBG-3.0 提示词怎么用</h3>
+        <div class="help-card">
+          <h4>一句话说明要抠的主体</h4>
+          <p>选 RMBG-3.0 后，顶部出现「提示词」输入框和「速度档」。提示词可用中文，例如：<span class="k">人物和椅子一起抠</span>、<span class="k">人物和沙发一起抠</span>、<span class="k">只抠衣服</span>、<span class="k">人物和头发</span>。
+          它会把这个描述里提到的所有东西一起保留为前景，没提到的都去掉。</p>
+        </div>
+        <div class="help-card">
+          <h4>速度档怎么选</h4>
+          <p>标准(1024) 约 70~90 秒，是效果与速度的平衡点；精细(1536) 约 2~4 分钟，超细发丝/小物件更稳；较省(768) 约 60 秒，适合先看效果。
+          显存只有 8GB 时，三个档差别不大（分块搬运是固定成本），建议直接用标准。</p>
+        </div>
+        <div class="help-card">
+          <h4>第一次点会等一会儿</h4>
+          <p>RMBG-3.0 共 24GB 权重，服务启动后会在后台自动加载（约 20 秒），首次点击前若显示「加载中」稍等即可；
+          若模型缺失，工具会自动退回 RMBG-2.0 并在结果上标注提示。</p>
+        </div>
+      </div>
+      <div class="help-sec">
         <h3>精细边缘</h3>
         <div class="help-card">
           <h4>顶部开关「精细边缘」</h4>
-          <p>开启后使用 ViTMatte 网络做发丝级抠图，<b>毛发、镂空、半透明边缘更准</b>，速度变慢（单张约 40s+）。对发丝要求高时开启。</p>
+          <p>开启后使用 ViTMatte 网络做发丝级抠图，<b>毛发、镂空、半透明边缘更准</b>，速度变慢（单张约 40s+）。对发丝要求高时开启。
+          选 RMBG-3.0 时该开关会自动变灰——它自带发丝级软边，不需要二次加工。</p>
         </div>
       </div>
       <div class="help-sec">
@@ -614,7 +652,9 @@
         <div class="faq-item"><button class="faq-q">提示内存不足怎么办？<span class="arrow">▶</span></button>
           <div class="faq-a">图片太大或并发太高。建议：① 换「高清 / 通用·更快」轻量模型 ② 并发改回 <span class="k">1</span> ③ 关闭 Photoshop 等大程序后重试。</div></div>
         <div class="faq-item"><button class="faq-q">椅子/桌子等连着人的物体被抠掉了？<span class="arrow">▶</span></button>
-          <div class="faq-a">这是自动抠图模型普遍难点（模型默认只认"主体"）。解决办法：① 换「完整增强 · RMBG+HRSOD」模型（并集最全）② 用「点选精修」在缺失处点绿色保留 ③ 用「提示词补全」输入 <span class="k">chair</span> 自动补。</div></div>
+          <div class="faq-a">这是自动抠图模型普遍难点（模型默认只认"主体"）。现在最优解：<b>选「RMBG-3.0」并在提示词里写「人物和椅子一起抠」</b>，它会把这个描述里点到的对象全部保留（实测椅背、扶手、椅腿都能完整留下）。备选：① 换「完整增强 · RMBG+HRSOD」② 用「点选精修」在缺失处点绿色保留 ③ 用「提示词补全」输入 <span class="k">chair</span> 自动补。</div></div>
+        <div class="faq-item"><button class="faq-q">RMBG-3.0 为什么这么慢？<span class="arrow">▶</span></button>
+          <div class="faq-a">它是个 8.1B 的大模型（24GB 权重），在 8GB 显存上必须把权重分块搬进搬出，所以每张约 70~90 秒——这是硬件带宽决定的，不是程序问题。要快就用 RMBG-2.0（约 10 秒/张）；要效果（尤其人坐椅、发丝、玻璃）就用 RMBG-3.0。显存 16GB 以上会明显更快。</div></div>
         <div class="faq-item"><button class="faq-q">发丝抠得不干净/有白边？<span class="arrow">▶</span></button>
           <div class="faq-a">开启顶部「精细边缘」（ViTMatte 发丝级）会明显改善；也可以用「提示词补全」输入 <span class="k">hair</span> 补发丝，或点选精修手动加。</div></div>
         <div class="faq-item"><button class="faq-q">图片太大提示超出上限？<span class="arrow">▶</span></button>
@@ -655,7 +695,7 @@
 const $ = s => document.querySelector(s);
 const EXT = ["jpg","jpeg","png","webp","bmp","tif","tiff"];
 const grid = $("#grid"), dz = $("#dz"), tb = $("#tb"), empty = $("#empty");
-const MODEL_NAMES = {rmbg2:"RMBG-2.0", enhance:"完整增强", hrsod:"HRSOD", quality:"高清", portrait:"人像", massive:"至尊", fast:"快速", human:"人像U2Net", sam:"SAM-ViT-B", sam_l:"SAM-ViT-L", clipseg:"提示词抠图"};
+const MODEL_NAMES = {rmbg3:"RMBG-3.0", rmbg2:"RMBG-2.0", enhance:"完整增强", hrsod:"HRSOD", quality:"高清", portrait:"人像", massive:"至尊", fast:"快速", human:"人像U2Net", sam:"SAM-ViT-B", sam_l:"SAM-ViT-L", clipseg:"提示词抠图"};
 
 const state = {
   items: [], running: false, cancel: false,
@@ -796,10 +836,15 @@ function processItem(it){
     fd.append("model", state.model);
     fd.append("matting", state.matting ? "1" : "0");
     fd.append("concurrency", $("#conc").value || "1");
+    if(state.model === "rmbg3"){
+      fd.append("prompt", ($("#prompt").value || "").trim());
+      fd.append("size", $("#r3size").value || "1024");
+    }
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/process");
     xhr.responseType = "json";
-    xhr.timeout = 300000;  // 5 分钟超时兜底，避免极端情况无限等待
+    // RMBG-3.0 为大模型（8GB 显存约 1-2 分钟/张），超时放宽
+    xhr.timeout = state.model === "rmbg3" ? 1800000 : 300000;
     xhr.upload.onprogress = e => {
       if(e.lengthComputable){
         it.progress = e.loaded / e.total;
@@ -1015,10 +1060,22 @@ function loadSettings(){
     if(c.sam){ $("#samModel").value = c.sam; }
   }catch(_){}
 }
-$("#model").addEventListener("change", e => { state.model = e.target.value; saveSettings(); });
+$("#model").addEventListener("change", e => {
+  state.model = e.target.value;
+  togglePromptField();
+  saveSettings();
+});
 $("#conc").addEventListener("change", saveSettings);
 $("#matting").addEventListener("change", e => { state.matting = e.target.checked; saveSettings(); });
 $("#samModel").addEventListener("change", saveSettings);
+
+function togglePromptField(){
+  const show = state.model === "rmbg3";
+  $("#promptField").style.display = show ? "" : "none";
+  $("#sizeField").style.display = show ? "" : "none";
+  $("#matting").closest("label").style.opacity = show ? "0.45" : "";
+  $("#matting").closest("label").title = show ? "RMBG-3.0 自带发丝级软边，无需再开精细边缘" : "";
+}
 
 /* ---------- 灯箱 ---------- */
 let lbItem = null, lbMode = "orig", lbZoom = 1, lbTx = 0, lbTy = 0;
@@ -1275,6 +1332,7 @@ $("#ptApply").addEventListener("click", async () => {
     return;
   }
   loadSettings();
+  togglePromptField();
   try{
     let onboarded = "0";
     try{ onboarded = localStorage.getItem("pixelcut_onboarded") || "0"; }catch(_){}
@@ -1288,6 +1346,20 @@ $("#ptApply").addEventListener("click", async () => {
     if(j.broken && j.broken.length){
       showBanner(`⚠ 以下模型文件损坏，请重新获取完整文件后覆盖：${j.broken.map(k => MODEL_NAMES[k] || k).join("、")}`, true);
     } else if(miss.length) showBanner(`ℹ ${miss.join("、")}尚未下载，选择对应模型时会自动联网下载。其余模型已就绪。`);
+    // RMBG-3.0 状态：未安装则禁用选项并说明
+    const opt3 = document.querySelector('#model option[value="rmbg3"]');
+    if(opt3){
+      const info = j.rmbg3 || {};
+      if(!info.installed){
+        opt3.disabled = true;
+        opt3.textContent = "RMBG-3.0 · 全球最强（未安装增强包）";
+        if(state.model === "rmbg3"){ state.model = "rmbg2"; $("#model").value = "rmbg2"; togglePromptField(); }
+      } else if(!info.ready){
+        opt3.textContent = info.worker ? "RMBG-3.0 · 加载中…（首张会稍慢）" : "RMBG-3.0 · 全球最强（启动中…）";
+      } else {
+        opt3.textContent = "RMBG-3.0 · 全球最强（新 · 可提示词）";
+      }
+    }
   }catch(_){
     showBanner("⚠ 无法连接本地服务，请先运行「启动抠图工具.bat」", true);
   }
