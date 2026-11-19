@@ -271,8 +271,8 @@ def ensure_rmbg3_worker():
         except Exception as e:  # noqa: BLE001
             _log.exception("RMBG-3.0 后台进程启动失败")
             return False, f"后台进程启动失败：{e}"
-    # 首次加载 15-40 秒（含 15GB 权重映射）
-    for _ in range(150):
+    # 首次加载实测约 2-3 分钟（24GB 权重映射 + 预热），留足余量
+    for _ in range(300):
         time.sleep(1)
         st = rmbg3_state()
         if st.get("ready"):
@@ -1015,4 +1015,6 @@ if __name__ == "__main__":
     print("=" * 46, flush=True)
     if not os.environ.get("RMT_NO_BROWSER"):
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    # 启动即在后台预热 RMBG-3.0，避免用户首次点击时还在加载
+    threading.Timer(1.5, lambda: _warm_rmbg3_async()).start()
     app.run(host="127.0.0.1", port=port, threaded=True, use_reloader=False)
